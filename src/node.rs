@@ -1,129 +1,129 @@
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub enum Node<'a> {
-    Block(Block<'a>),
-    Inline(Inline<'a>),
+pub enum Node {
+    Block(Block),
+    Inline(Inline),
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub enum Block<'a> {
-    Quote(Quote<'a>),
-    Search(Search<'a>),
-    CodeBlock(CodeBlock<'a>),
-    MathBlock(MathBlock<'a>),
+pub enum Block {
+    Quote(Quote),
+    Search(Search),
+    CodeBlock(CodeBlock),
+    MathBlock(MathBlock),
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct Quote<'a>(Vec<Node<'a>>);
+pub struct Quote(pub Vec<Node>);
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct Search<'a> {
-    pub query: &'a str,
-    pub content: &'a str,
+pub struct Search {
+    pub query: String,
+    pub content: String,
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct CodeBlock<'a> {
-    pub code: &'a str,
-    pub lang: Option<&'a str>,
+pub struct CodeBlock {
+    pub code: String,
+    pub lang: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct MathBlock<'a> {
-    pub formula: &'a str,
+pub struct MathBlock {
+    pub formula: String,
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub enum Inline<'a> {
-    UnicodeEmoji(UnicodeEmoji<'a>),
-    EmojiCode(EmojiCode<'a>),
-    Bold(Bold<'a>),
-    Small(Small<'a>),
-    Italic(Italic<'a>),
-    Strike(Strike<'a>),
-    InlineCode(InlineCode<'a>),
-    MathInline(MathInline<'a>),
-    Mention(Mention<'a>),
-    Hashtag(Hashtag<'a>),
-    Url(Url<'a>),
-    Link(Link<'a>),
-    Fn(Fn<'a>),
-    Plain(Plain<'a>),
-    Text(Text<'a>),
+pub enum Inline {
+    UnicodeEmoji(UnicodeEmoji),
+    EmojiCode(EmojiCode),
+    Bold(Bold),
+    Small(Small),
+    Italic(Italic),
+    Strike(Strike),
+    InlineCode(InlineCode),
+    MathInline(MathInline),
+    Mention(Mention),
+    Hashtag(Hashtag),
+    Url(Url),
+    Link(Link),
+    Fn(Fn),
+    Plain(Plain),
+    Text(Text),
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub enum Simple<'a> {
-    UnicodeEmoji(UnicodeEmoji<'a>),
-    EmojiCode(EmojiCode<'a>),
-    Text(Text<'a>),
+pub enum Simple {
+    UnicodeEmoji(UnicodeEmoji),
+    EmojiCode(EmojiCode),
+    Text(Text),
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct UnicodeEmoji<'a> {
-    pub emoji: &'a str,
+pub struct UnicodeEmoji {
+    pub emoji: String,
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct EmojiCode<'a> {
-    pub name: &'a str,
+pub struct EmojiCode {
+    pub name: String,
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct Bold<'a>(Vec<Inline<'a>>);
+pub struct Bold(Vec<Inline>);
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct Small<'a>(Vec<Inline<'a>>);
+pub struct Small(Vec<Inline>);
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct Italic<'a>(Vec<Inline<'a>>);
+pub struct Italic(Vec<Inline>);
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct Strike<'a>(Vec<Inline<'a>>);
+pub struct Strike(Vec<Inline>);
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct InlineCode<'a> {
-    pub code: &'a str,
+pub struct InlineCode {
+    pub code: String,
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct MathInline<'a> {
-    pub formula: &'a str,
+pub struct MathInline {
+    pub formula: String,
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct Mention<'a> {
-    pub username: &'a str,
-    pub host: Option<&'a str>,
-    pub acct: &'a str,
+pub struct Mention {
+    pub username: String,
+    pub host: Option<String>,
+    pub acct: String,
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct Hashtag<'a> {
-    pub hashtag: &'a str,
+pub struct Hashtag {
+    pub hashtag: String,
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct Url<'a> {
-    pub url: &'a str,
+pub struct Url {
+    pub url: String,
     pub brackets: bool,
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct Link<'a> {
-    pub url: &'a str,
+pub struct Link {
+    pub url: String,
     pub silent: bool,
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct Fn<'a> {
-    pub name: &'a str,
-    pub args: Vec<(&'a str, Option<&'a str>)>,
+pub struct Fn {
+    pub name: String,
+    pub args: Vec<(String, Option<String>)>,
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct Plain<'a>(Vec<Text<'a>>);
+pub struct Plain(pub Vec<Text>);
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct Text<'a> {
-    pub text: &'a str,
+pub struct Text {
+    pub text: String,
 }
