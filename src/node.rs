@@ -10,6 +10,7 @@ pub enum Block {
     Search(Search),
     CodeBlock(CodeBlock),
     MathBlock(MathBlock),
+    Center(Center),
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -31,6 +32,9 @@ pub struct CodeBlock {
 pub struct MathBlock {
     pub formula: String,
 }
+
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub struct Center(pub Vec<Inline>);
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum Inline {
