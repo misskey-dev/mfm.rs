@@ -1,11 +1,11 @@
 use nom::{
     branch::alt,
-    bytes::complete::{tag, take},
+    bytes::complete::{tag, tag_no_case, take},
     character::complete::{anychar, char, line_ending, not_line_ending},
-    combinator::{map, map_res, not, opt, recognize, verify},
+    combinator::{map, map_res, not, opt, peek, recognize, rest, value, verify},
     error::{ErrorKind, ParseError},
     multi::{many0, many1, many_m_n, separated_list1},
-    sequence::{delimited, pair, preceded},
+    sequence::{delimited, pair, preceded, tuple},
     IResult,
 };
 
@@ -17,6 +17,14 @@ fn failure<'a>(input: &'a str) -> nom::error::Error<&'a str> {
 
 fn space<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &'a str, E> {
     alt((tag("\u{0020}"), tag("\u{3000}"), tag("\t")))(input)
+}
+
+/// Verifies if the next character is line ending or empty.
+fn line_end<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, (), E> {
+    alt((
+        value((), verify(rest, |s: &str| s.is_empty())),
+        value((), peek(line_ending)),
+    ))(input)
 }
 
 /// Parser for full MFM syntax.
@@ -71,7 +79,7 @@ impl FullParser {
     fn parse_block<'a>(&self, input: &'a str) -> IResult<&'a str, Block> {
         alt((
             map(|s| self.parse_quote(s), Block::Quote),
-            // map(Self::parse_search, Block::Search),
+            map(Self::parse_search, Block::Search),
             // map(Self::parse_code_block, Block::CodeBlock),
             // map(Self::parse_math_block, Block::MathBlock),
         ))(input)
@@ -107,7 +115,41 @@ impl FullParser {
     }
 
     fn parse_search<'a>(input: &'a str) -> IResult<&'a str, Search> {
-        todo!()
+        fn button<'a>(input: &'a str) -> IResult<&'a str, &'a str> {
+            recognize(alt((
+                delimited(
+                    char('['),
+                    alt((tag("検索"), tag_no_case("search"))),
+                    char(']'),
+                ),
+                alt((tag("検索"), tag_no_case("search"))),
+            )))(input)
+        }
+
+        delimited(
+            opt(line_ending),
+            map(
+                tuple((
+                    recognize(many1(preceded(
+                        not(alt((
+                            value((), line_ending),
+                            value((), tuple((space, button, line_end))),
+                        ))),
+                        anychar,
+                    ))),
+                    space,
+                    button,
+                )),
+                |(query, space, button)| {
+                    let content = format!("{query}{space}{button}");
+                    Search {
+                        query: query.to_string(),
+                        content,
+                    }
+                },
+            ),
+            opt(line_ending),
+        )(input)
     }
 
     fn parse_code_block<'a>(input: &'a str) -> IResult<&'a str, CodeBlock> {

@@ -154,6 +154,73 @@ hoge"#;
     }
 }
 
+mod search {
+    use super::*;
+
+    #[test]
+    fn basic() {
+        let input = "MFM 書き方 123 Search";
+        let output = vec![Node::Block(Block::Search(Search {
+            query: "MFM 書き方 123".to_string(),
+            content: input.to_string(),
+        }))];
+        assert_eq!(mfm::parse(input).unwrap(), output);
+
+        let input = "MFM 書き方 123 [Search]";
+        let output = vec![Node::Block(Block::Search(Search {
+            query: "MFM 書き方 123".to_string(),
+            content: input.to_string(),
+        }))];
+        assert_eq!(mfm::parse(input).unwrap(), output);
+
+        let input = "MFM 書き方 123 search";
+        let output = vec![Node::Block(Block::Search(Search {
+            query: "MFM 書き方 123".to_string(),
+            content: input.to_string(),
+        }))];
+        assert_eq!(mfm::parse(input).unwrap(), output);
+
+        let input = "MFM 書き方 123 [search]";
+        let output = vec![Node::Block(Block::Search(Search {
+            query: "MFM 書き方 123".to_string(),
+            content: input.to_string(),
+        }))];
+        assert_eq!(mfm::parse(input).unwrap(), output);
+
+        let input = "MFM 書き方 123 検索";
+        let output = vec![Node::Block(Block::Search(Search {
+            query: "MFM 書き方 123".to_string(),
+            content: input.to_string(),
+        }))];
+        assert_eq!(mfm::parse(input).unwrap(), output);
+
+        let input = "MFM 書き方 123 [検索]";
+        let output = vec![Node::Block(Block::Search(Search {
+            query: "MFM 書き方 123".to_string(),
+            content: input.to_string(),
+        }))];
+        assert_eq!(mfm::parse(input).unwrap(), output);
+    }
+
+    #[test]
+    fn text_around_block() {
+        let input = "abc\nhoge piyo bebeyo 検索\n123";
+        let output = vec![
+            Node::Inline(Inline::Text(Text {
+                text: "abc".to_string(),
+            })),
+            Node::Block(Block::Search(Search {
+                query: "hoge piyo bebeyo".to_string(),
+                content: "hoge piyo bebeyo 検索".to_string(),
+            })),
+            Node::Inline(Inline::Text(Text {
+                text: "123".to_string(),
+            })),
+        ];
+        assert_eq!(mfm::parse(input).unwrap(), output);
+    }
+}
+
 mod plain {
     use super::*;
 
