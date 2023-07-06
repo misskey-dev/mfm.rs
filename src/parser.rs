@@ -5,7 +5,7 @@ use nom::{
     combinator::{map, map_res, not, opt, peek, recognize, rest, value, verify},
     error::{ErrorKind, ParseError},
     multi::{many0, many1, many_m_n, separated_list1},
-    sequence::{delimited, pair, preceded, tuple},
+    sequence::{delimited, pair, preceded, separated_pair, tuple},
     IResult,
 };
 
@@ -80,7 +80,7 @@ impl FullParser {
         alt((
             map(|s| self.parse_quote(s), Block::Quote),
             map(Self::parse_search, Block::Search),
-            // map(Self::parse_code_block, Block::CodeBlock),
+            map(Self::parse_code_block, Block::CodeBlock),
             // map(Self::parse_math_block, Block::MathBlock),
         ))(input)
     }
@@ -153,7 +153,29 @@ impl FullParser {
     }
 
     fn parse_code_block<'a>(input: &'a str) -> IResult<&'a str, CodeBlock> {
-        todo!()
+        const MARK: &str = "```";
+        delimited(
+            opt(line_ending),
+            delimited(
+                tag(MARK),
+                map(
+                    separated_pair(
+                        opt(verify(not_line_ending, |s: &str| s.len() > 0)),
+                        line_ending,
+                        recognize(many1(preceded(
+                            not(tuple((line_ending, tag(MARK), line_end))),
+                            anychar,
+                        ))),
+                    ),
+                    |(lang, code)| CodeBlock {
+                        code: code.to_string(),
+                        lang: lang.map(String::from),
+                    },
+                ),
+                tuple((line_ending, tag(MARK), line_end)),
+            ),
+            opt(line_ending),
+        )(input)
     }
 
     fn parse_math_block<'a>(input: &'a str) -> IResult<&'a str, MathBlock> {

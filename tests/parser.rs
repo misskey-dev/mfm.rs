@@ -221,6 +221,83 @@ mod search {
     }
 }
 
+mod code_block {
+    use super::*;
+
+    #[test]
+    fn simple() {
+        let input = "```\nabc\n```";
+        let output = vec![Node::Block(Block::CodeBlock(CodeBlock {
+            code: "abc".to_string(),
+            lang: None,
+        }))];
+        assert_eq!(mfm::parse(input).unwrap(), output);
+    }
+
+    #[test]
+    fn multiple_line() {
+        let input = "```\na\nb\nc\n```";
+        let output = vec![Node::Block(Block::CodeBlock(CodeBlock {
+            code: "a\nb\nc".to_string(),
+            lang: None,
+        }))];
+        assert_eq!(mfm::parse(input).unwrap(), output);
+    }
+
+    #[test]
+    fn lang() {
+        let input = "```js\nconst a = 1;\n```";
+        let output = vec![Node::Block(Block::CodeBlock(CodeBlock {
+            code: "const a = 1;".to_string(),
+            lang: Some("js".to_string()),
+        }))];
+        assert_eq!(mfm::parse(input).unwrap(), output);
+    }
+
+    #[test]
+    fn text_around_block() {
+        let input = "abc\n```\nconst abc = 1;\n```\n123";
+        let output = vec![
+            Node::Inline(Inline::Text(Text {
+                text: "abc".to_string(),
+            })),
+            Node::Block(Block::CodeBlock(CodeBlock {
+                code: "const abc = 1;".to_string(),
+                lang: None,
+            })),
+            Node::Inline(Inline::Text(Text {
+                text: "123".to_string(),
+            })),
+        ];
+        assert_eq!(mfm::parse(input).unwrap(), output);
+    }
+
+    #[test]
+    fn ignore_internal_marker() {
+        let input = "```\naaa```bbb\n```";
+        let output = vec![Node::Block(Block::CodeBlock(CodeBlock {
+            code: "aaa```bbb".to_string(),
+            lang: None,
+        }))];
+        assert_eq!(mfm::parse(input).unwrap(), output);
+    }
+
+    #[test]
+    fn trim_after_line_break() {
+        let input = "```\nfoo\n```\nbar";
+        let output = vec![
+            Node::Block(Block::CodeBlock(CodeBlock {
+                code: "foo".to_string(),
+                lang: None,
+            })),
+            Node::Inline(Inline::Text(Text {
+                text: "bar".to_string(),
+            })),
+        ];
+        assert_eq!(mfm::parse(input).unwrap(), output);
+    }
+}
+
 mod plain {
     use super::*;
 
