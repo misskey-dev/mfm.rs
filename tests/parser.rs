@@ -678,6 +678,55 @@ hoge"#;
         }
     }
 
+    mod small {
+        use super::*;
+
+        #[test]
+        fn basic() {
+            let input = "<small>abc</small>";
+            let output = vec![Node::Inline(Inline::Small(Small(vec![Inline::Text(
+                Text {
+                    text: "abc".to_string(),
+                },
+            )])))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn inline_contents() {
+            let input = "<small>123**abc**123</small>";
+            let output = vec![Node::Inline(Inline::Small(Small(vec![
+                Inline::Text(Text {
+                    text: "123".to_string(),
+                }),
+                Inline::Bold(Bold(vec![Inline::Text(Text {
+                    text: "abc".to_string(),
+                })])),
+                Inline::Text(Text {
+                    text: "123".to_string(),
+                }),
+            ])))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn multiple_line_contents() {
+            let input = "<small>123\n**abc**\n123</small>";
+            let output = vec![Node::Inline(Inline::Small(Small(vec![
+                Inline::Text(Text {
+                    text: "123\n".to_string(),
+                }),
+                Inline::Bold(Bold(vec![Inline::Text(Text {
+                    text: "abc".to_string(),
+                })])),
+                Inline::Text(Text {
+                    text: "\n123".to_string(),
+                }),
+            ])))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+    }
+
     mod plain {
         use super::*;
 
@@ -782,6 +831,18 @@ hoge"#;
                 )])))];
                 assert_eq!(mfm::parse_with_nest_limit(input, 2).unwrap(), output);
             }
+        }
+
+        #[test]
+        #[ignore]
+        fn small() {
+            let input = "<i><i><small>abc</small></i></i>";
+            let output = vec![Node::Inline(Inline::Italic(Italic(vec![Inline::Italic(
+                Italic(vec![Inline::Text(Text {
+                    text: "<small>abc</small>".to_string(),
+                })]),
+            )])))];
+            assert_eq!(mfm::parse_with_nest_limit(input, 2).unwrap(), output);
         }
     }
 }

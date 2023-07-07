@@ -265,6 +265,7 @@ impl FullParser {
             map(Self::parse_emoji_code, Inline::EmojiCode),
             map(|s| self.parse_big(s), Inline::Fn),
             map(|s| self.parse_bold(s), Inline::Bold),
+            map(|s| self.parse_small(s), Inline::Small),
             map(Self::parse_plain, Inline::Plain),
             map(Self::parse_text, Inline::Text),
         ))(input)
@@ -388,8 +389,30 @@ impl FullParser {
         map(alt((bold_asta, bold_tag, bold_under)), Bold)(input)
     }
 
-    fn parse_small<'a>(input: &'a str) -> IResult<&'a str, Small> {
-        todo!()
+    fn parse_small<'a>(&self, input: &'a str) -> IResult<&'a str, Small> {
+        const OPEN: &str = "<small>";
+        const CLOSE: &str = "</small>";
+        map(
+            delimited(
+                tag(OPEN),
+                |contents| {
+                    if let Some(inner) = self.nest() {
+                        map(
+                            many1(preceded(not(tag(CLOSE)), |s| inner.parse_inline(s))),
+                            merge_text_inline,
+                        )(contents)
+                    } else {
+                        map(take_until1(CLOSE), |s: &str| {
+                            vec![Inline::Text(Text {
+                                text: s.to_string(),
+                            })]
+                        })(contents)
+                    }
+                },
+                tag(CLOSE),
+            ),
+            Small,
+        )(input)
     }
 
     fn parse_italic<'a>(input: &'a str) -> IResult<&'a str, Italic> {
