@@ -495,6 +495,65 @@ hoge"#;
         }
     }
 
+    mod big {
+        use super::*;
+
+        #[test]
+        fn basic() {
+            let input = "***abc***";
+            let output = vec![Node::Inline(Inline::Fn(Fn {
+                name: "tada".to_string(),
+                args: Vec::new(),
+                children: vec![Inline::Text(Text {
+                    text: "abc".to_string(),
+                })],
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn inline_contents() {
+            let input = "***123**abc**123***";
+            let output = vec![Node::Inline(Inline::Fn(Fn {
+                name: "tada".to_string(),
+                args: Vec::new(),
+                children: vec![
+                    Inline::Text(Text {
+                        text: "123".to_string(),
+                    }),
+                    Inline::Bold(Bold(vec![Inline::Text(Text {
+                        text: "abc".to_string(),
+                    })])),
+                    Inline::Text(Text {
+                        text: "123".to_string(),
+                    }),
+                ],
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn multiple_line_contents() {
+            let input = "***123\n**abc**\n123***";
+            let output = vec![Node::Inline(Inline::Fn(Fn {
+                name: "tada".to_string(),
+                args: Vec::new(),
+                children: vec![
+                    Inline::Text(Text {
+                        text: "123\n".to_string(),
+                    }),
+                    Inline::Bold(Bold(vec![Inline::Text(Text {
+                        text: "abc".to_string(),
+                    })])),
+                    Inline::Text(Text {
+                        text: "\n123".to_string(),
+                    }),
+                ],
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+    }
+
     mod bold {
         use super::*;
 
@@ -684,6 +743,17 @@ hoge"#;
                 )])))];
                 assert_eq!(mfm::parse_with_nest_limit(input, 2).unwrap(), output);
             }
+        }
+
+        #[test]
+        fn big() {
+            let input = "<b><b>***abc***</b></b>";
+            let output = vec![Node::Inline(Inline::Bold(Bold(vec![Inline::Bold(Bold(
+                vec![Inline::Text(Text {
+                    text: "***abc***".to_string(),
+                })],
+            ))])))];
+            assert_eq!(mfm::parse_with_nest_limit(input, 2).unwrap(), output);
         }
 
         mod bold {

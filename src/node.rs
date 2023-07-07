@@ -122,6 +122,7 @@ pub struct Link {
 pub struct Fn {
     pub name: String,
     pub args: Vec<(String, Option<String>)>,
+    pub children: Vec<Inline>,
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]

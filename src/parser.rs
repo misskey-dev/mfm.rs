@@ -263,6 +263,7 @@ impl FullParser {
     fn parse_inline<'a>(&self, input: &'a str) -> IResult<&'a str, Inline> {
         alt((
             map(Self::parse_emoji_code, Inline::EmojiCode),
+            map(|s| self.parse_big(s), Inline::Fn),
             map(|s| self.parse_bold(s), Inline::Bold),
             map(Self::parse_plain, Inline::Plain),
             map(Self::parse_text, Inline::Text),
@@ -291,6 +292,36 @@ impl FullParser {
                 char(':'),
             ),
             side,
+        )(input)
+    }
+
+    // deprecated?
+    fn parse_big<'a>(&self, input: &'a str) -> IResult<&'a str, Fn> {
+        const MARK: &str = "***";
+        map(
+            delimited(
+                tag(MARK),
+                |contents| {
+                    if let Some(inner) = self.nest() {
+                        map(
+                            many1(preceded(not(tag(MARK)), |s| inner.parse_inline(s))),
+                            merge_text_inline,
+                        )(contents)
+                    } else {
+                        map(take_until1(MARK), |s: &str| {
+                            vec![Inline::Text(Text {
+                                text: s.to_string(),
+                            })]
+                        })(contents)
+                    }
+                },
+                tag(MARK),
+            ),
+            |children| Fn {
+                name: "tada".to_string(),
+                args: Vec::new(),
+                children,
+            },
         )(input)
     }
 
