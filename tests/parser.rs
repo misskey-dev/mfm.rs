@@ -495,6 +495,130 @@ hoge"#;
         }
     }
 
+    mod bold {
+        use super::*;
+
+        mod asta {
+            use super::*;
+
+            #[test]
+            fn basic() {
+                let input = "**abc**";
+                let output = vec![Node::Inline(Inline::Bold(Bold(vec![Inline::Text(Text {
+                    text: "abc".to_string(),
+                })])))];
+                assert_eq!(mfm::parse(input).unwrap(), output);
+            }
+
+            #[test]
+            #[ignore]
+            fn inline_contents() {
+                let input = "**123~~abc~~123**";
+                let output = vec![Node::Inline(Inline::Bold(Bold(vec![
+                    Inline::Text(Text {
+                        text: "123".to_string(),
+                    }),
+                    Inline::Strike(Strike(vec![Inline::Text(Text {
+                        text: "abc".to_string(),
+                    })])),
+                    Inline::Text(Text {
+                        text: "123".to_string(),
+                    }),
+                ])))];
+                assert_eq!(mfm::parse(input).unwrap(), output);
+            }
+
+            #[test]
+            #[ignore]
+            fn multiple_line_contents() {
+                let input = "**123\n~~abc~~\n123**";
+                let output = vec![Node::Inline(Inline::Bold(Bold(vec![
+                    Inline::Text(Text {
+                        text: "123\n".to_string(),
+                    }),
+                    Inline::Strike(Strike(vec![Inline::Text(Text {
+                        text: "abc".to_string(),
+                    })])),
+                    Inline::Text(Text {
+                        text: "\n123".to_string(),
+                    }),
+                ])))];
+                assert_eq!(mfm::parse(input).unwrap(), output);
+            }
+        }
+
+        mod tag {
+            use super::*;
+
+            #[test]
+            fn basic() {
+                let input = "<b>abc</b>";
+                let output = vec![Node::Inline(Inline::Bold(Bold(vec![Inline::Text(Text {
+                    text: "abc".to_string(),
+                })])))];
+                assert_eq!(mfm::parse(input).unwrap(), output);
+            }
+
+            #[test]
+            #[ignore]
+            fn inline_contents() {
+                let input = "<b>123~~abc~~123</b>";
+                let output = vec![Node::Inline(Inline::Bold(Bold(vec![
+                    Inline::Text(Text {
+                        text: "123".to_string(),
+                    }),
+                    Inline::Strike(Strike(vec![Inline::Text(Text {
+                        text: "abc".to_string(),
+                    })])),
+                    Inline::Text(Text {
+                        text: "123".to_string(),
+                    }),
+                ])))];
+                assert_eq!(mfm::parse(input).unwrap(), output);
+            }
+
+            #[test]
+            #[ignore]
+            fn multiple_line_contents() {
+                let input = "<b>123\n~~abc~~\n123</b>";
+                let output = vec![Node::Inline(Inline::Bold(Bold(vec![
+                    Inline::Text(Text {
+                        text: "123\n".to_string(),
+                    }),
+                    Inline::Strike(Strike(vec![Inline::Text(Text {
+                        text: "abc".to_string(),
+                    })])),
+                    Inline::Text(Text {
+                        text: "\n123".to_string(),
+                    }),
+                ])))];
+                assert_eq!(mfm::parse(input).unwrap(), output);
+            }
+        }
+
+        mod under {
+            use super::*;
+
+            #[test]
+            fn basic() {
+                let input = "__abc 123__";
+                let output = vec![Node::Inline(Inline::Bold(Bold(vec![Inline::Text(Text {
+                    text: "abc 123".to_string(),
+                })])))];
+                assert_eq!(mfm::parse(input).unwrap(), output);
+            }
+
+            #[test]
+            fn non_ascii() {
+                let input = "__あ__";
+                let output = vec![Node::Inline(Inline::Text(Text {
+                    text: "__あ__".to_string(),
+                }))];
+                assert_eq!(mfm::parse(input).unwrap(), output);
+            }
+        }
+    }
+
     mod plain {
         use super::*;
 
@@ -557,6 +681,34 @@ hoge"#;
                     Block::Quote(Quote(vec![Node::Inline(Inline::Text(Text {
                         text: "**abc**".to_string(),
                     }))])),
+                )])))];
+                assert_eq!(mfm::parse_with_nest_limit(input, 2).unwrap(), output);
+            }
+        }
+
+        mod bold {
+            use super::*;
+
+            #[test]
+            #[ignore]
+            fn basic() {
+                let input = "<i><i>**abc**</i></i>";
+                let output = vec![Node::Inline(Inline::Italic(Italic(vec![Inline::Italic(
+                    Italic(vec![Inline::Text(Text {
+                        text: "**abc**".to_string(),
+                    })]),
+                )])))];
+                assert_eq!(mfm::parse_with_nest_limit(input, 2).unwrap(), output);
+            }
+
+            #[test]
+            #[ignore]
+            fn tag() {
+                let input = "<i><i><b>abc</b></i></i>";
+                let output = vec![Node::Inline(Inline::Italic(Italic(vec![Inline::Italic(
+                    Italic(vec![Inline::Text(Text {
+                        text: "<b>abc</b>".to_string(),
+                    })]),
                 )])))];
                 assert_eq!(mfm::parse_with_nest_limit(input, 2).unwrap(), output);
             }

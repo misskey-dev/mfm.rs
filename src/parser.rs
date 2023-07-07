@@ -1,6 +1,6 @@
 use nom::{
     branch::alt,
-    bytes::complete::{tag, tag_no_case, take, take_till1},
+    bytes::complete::{tag, tag_no_case, take, take_till1, take_until1},
     character::complete::{anychar, char, line_ending, not_line_ending, satisfy},
     combinator::{map, map_res, not, opt, peek, recognize, rest, value, verify},
     error::{ErrorKind, ParseError},
@@ -263,6 +263,7 @@ impl FullParser {
     fn parse_inline<'a>(&self, input: &'a str) -> IResult<&'a str, Inline> {
         alt((
             map(Self::parse_emoji_code, Inline::EmojiCode),
+            map(|s| self.parse_bold(s), Inline::Bold),
             map(Self::parse_plain, Inline::Plain),
             map(Self::parse_text, Inline::Text),
         ))(input)
@@ -293,8 +294,67 @@ impl FullParser {
         )(input)
     }
 
-    fn parse_bold<'a>(input: &'a str) -> IResult<&'a str, Bold> {
-        todo!()
+    fn parse_bold<'a>(&self, input: &'a str) -> IResult<&'a str, Bold> {
+        let bold_asta = |input: &'a str| -> IResult<&'a str, Vec<Inline>> {
+            const MARK: &str = "**";
+            delimited(
+                tag(MARK),
+                |contents| {
+                    if let Some(inner) = self.nest() {
+                        map(
+                            many1(preceded(not(tag(MARK)), |s| inner.parse_inline(s))),
+                            merge_text_inline,
+                        )(contents)
+                    } else {
+                        map(take_until1(MARK), |s: &str| {
+                            vec![Inline::Text(Text {
+                                text: s.to_string(),
+                            })]
+                        })(contents)
+                    }
+                },
+                tag(MARK),
+            )(input)
+        };
+        let bold_tag = |input: &'a str| -> IResult<&'a str, Vec<Inline>> {
+            const OPEN: &str = "<b>";
+            const CLOSE: &str = "</b>";
+            delimited(
+                tag(OPEN),
+                |contents| {
+                    if let Some(inner) = self.nest() {
+                        map(
+                            many1(preceded(not(tag(CLOSE)), |s| inner.parse_inline(s))),
+                            merge_text_inline,
+                        )(contents)
+                    } else {
+                        map(take_until1(CLOSE), |s: &str| {
+                            vec![Inline::Text(Text {
+                                text: s.to_string(),
+                            })]
+                        })(contents)
+                    }
+                },
+                tag(CLOSE),
+            )(input)
+        };
+        let bold_under = |input: &'a str| -> IResult<&'a str, Vec<Inline>> {
+            const MARK: &str = "__";
+            delimited(
+                tag(MARK),
+                map(
+                    take_till1(|c: char| !c.is_ascii_alphanumeric() && !" \t".contains(c)),
+                    |s: &str| {
+                        vec![Inline::Text(Text {
+                            text: s.to_string(),
+                        })]
+                    },
+                ),
+                tag(MARK),
+            )(input)
+        };
+
+        map(alt((bold_asta, bold_tag, bold_under)), Bold)(input)
     }
 
     fn parse_small<'a>(input: &'a str) -> IResult<&'a str, Small> {

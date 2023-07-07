@@ -73,16 +73,16 @@ pub struct EmojiCode {
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct Bold(Vec<Inline>);
+pub struct Bold(pub Vec<Inline>);
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct Small(Vec<Inline>);
+pub struct Small(pub Vec<Inline>);
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct Italic(Vec<Inline>);
+pub struct Italic(pub Vec<Inline>);
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub struct Strike(Vec<Inline>);
+pub struct Strike(pub Vec<Inline>);
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct InlineCode {
