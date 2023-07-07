@@ -1,4 +1,4 @@
-use crate::node::{Inline, Node, Text};
+use crate::node::{Inline, Node, Simple, Text};
 
 /// Pushes text to vector if stored string is not empty.
 fn generate_text<T: From<Text>>(mut dest: Vec<T>, stored_string: String) -> (Vec<T>, String) {
@@ -37,6 +37,24 @@ pub fn merge_text_inline(nodes: Vec<Inline>) -> Vec<Inline> {
         (Vec::<Inline>::new(), String::new()),
         |(dest, stored_string), node| {
             if let Inline::Text(Text { text }) = node {
+                (dest, stored_string + &text)
+            } else {
+                let (mut dest, stored_string) = generate_text(dest, stored_string);
+                dest.push(node);
+                (dest, stored_string)
+            }
+        },
+    );
+
+    generate_text(dest, stored_string).0
+}
+
+/// Merges adjacent simple text nodes into one with their contents concatenated.
+pub fn merge_text_simple(nodes: Vec<Simple>) -> Vec<Simple> {
+    let (dest, stored_string) = nodes.into_iter().fold(
+        (Vec::<Simple>::new(), String::new()),
+        |(dest, stored_string), node| {
+            if let Simple::Text(Text { text }) = node {
                 (dest, stored_string + &text)
             } else {
                 let (mut dest, stored_string) = generate_text(dest, stored_string);

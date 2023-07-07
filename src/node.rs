@@ -143,3 +143,9 @@ impl From<Text> for Inline {
         Inline::Text(text)
     }
 }
+
+impl From<Text> for Simple {
+    fn from(text: Text) -> Self {
+        Simple::Text(text)
+    }
+}

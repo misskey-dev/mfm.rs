@@ -11,7 +11,7 @@ use nom::{
 
 use crate::{
     node::*,
-    util::{merge_text, merge_text_inline},
+    util::{merge_text, merge_text_inline, merge_text_simple},
 };
 
 fn failure<'a>(input: &'a str) -> nom::error::Error<&'a str> {
@@ -28,6 +28,23 @@ fn line_end<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, (), 
         value((), verify(rest, |s: &str| s.is_empty())),
         value((), peek(line_ending)),
     ))(input)
+}
+
+/// Parser for partial MFM syntax.
+#[derive(Clone, Debug)]
+pub struct SimpleParser {}
+
+impl SimpleParser {
+    /// Returns a simple MFM node tree.
+    pub fn parse<'a>(input: &'a str) -> IResult<&'a str, Vec<Simple>> {
+        map(
+            many0(alt((
+                map(|s| FullParser::parse_emoji_code(s), Simple::EmojiCode),
+                map(|s| FullParser::parse_text(s), Simple::Text),
+            ))),
+            merge_text_simple,
+        )(input)
+    }
 }
 
 /// Parser for full MFM syntax.
