@@ -131,3 +131,15 @@ pub struct Plain(pub Vec<Text>);
 pub struct Text {
     pub text: String,
 }
+
+impl From<Text> for Node {
+    fn from(text: Text) -> Self {
+        Node::Inline(Inline::Text(text))
+    }
+}
+
+impl From<Text> for Inline {
+    fn from(text: Text) -> Self {
+        Inline::Text(text)
+    }
+}

@@ -42,7 +42,6 @@ mod quote {
     }
 
     #[test]
-    #[ignore]
     fn nest_block() {
         let input = r#"
 > <center>
@@ -343,6 +342,38 @@ mod math_block {
         let output = vec![Node::Inline(Inline::Text(Text {
             text: "before\\[aaa\\]".to_string(),
         }))];
+        assert_eq!(mfm::parse(input).unwrap(), output);
+    }
+}
+
+mod center {
+    use super::*;
+
+    #[test]
+    fn single_text() {
+        let input = "<center>abc</center>";
+        let output = vec![Node::Block(Block::Center(Center(vec![Inline::Text(
+            Text {
+                text: "abc".to_string(),
+            },
+        )])))];
+        assert_eq!(mfm::parse(input).unwrap(), output);
+    }
+
+    #[test]
+    fn multiple_text() {
+        let input = "before\n<center>\nabc\n123\n\npiyo\n</center>\nafter";
+        let output = vec![
+            Node::Inline(Inline::Text(Text {
+                text: "before".to_string(),
+            })),
+            Node::Block(Block::Center(Center(vec![Inline::Text(Text {
+                text: "abc\n123\n\npiyo".to_string(),
+            })]))),
+            Node::Inline(Inline::Text(Text {
+                text: "after".to_string(),
+            })),
+        ];
         assert_eq!(mfm::parse(input).unwrap(), output);
     }
 }

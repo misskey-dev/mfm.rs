@@ -9,7 +9,10 @@ use nom::{
     IResult,
 };
 
-use crate::{node::*, util::merge_text};
+use crate::{
+    node::*,
+    util::{merge_text, merge_text_inline},
+};
 
 fn failure<'a>(input: &'a str) -> nom::error::Error<&'a str> {
     nom::error::Error::from_error_kind(input, ErrorKind::Fail)
@@ -82,6 +85,7 @@ impl FullParser {
             map(Self::parse_search, Block::Search),
             map(Self::parse_code_block, Block::CodeBlock),
             map(Self::parse_math_block, Block::MathBlock),
+            map(|s| self.parse_center(s), Block::Center),
         ))(input)
     }
 
@@ -201,6 +205,41 @@ impl FullParser {
                 pair(tag(CLOSE), line_end),
             ),
             opt(line_ending),
+        )(input)
+    }
+
+    fn parse_center<'a>(&self, input: &'a str) -> IResult<&'a str, Center> {
+        const OPEN: &str = "<center>";
+        const CLOSE: &str = "</center>";
+        map_res(
+            delimited(
+                opt(line_ending),
+                delimited(
+                    tag(OPEN),
+                    delimited(
+                        opt(line_ending),
+                        recognize(many1(preceded(
+                            not(pair(opt(line_ending), tag(CLOSE))),
+                            anychar,
+                        ))),
+                        opt(line_ending),
+                    ),
+                    pair(tag(CLOSE), line_end),
+                ),
+                opt(line_ending),
+            ),
+            |contents| {
+                let nodes = if let Some(inner) = self.nest() {
+                    map(many1(|s| inner.parse_inline(s)), merge_text_inline)(contents)
+                        .map_err(|_| failure(contents))?
+                        .1
+                } else {
+                    vec![Inline::Text(Text {
+                        text: contents.to_string(),
+                    })]
+                };
+                Ok::<Center, nom::error::Error<&str>>(Center(nodes))
+            },
         )(input)
     }
 
