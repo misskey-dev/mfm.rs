@@ -1,7 +1,7 @@
 use nom::{
     branch::alt,
-    bytes::complete::{tag, tag_no_case, take},
-    character::complete::{anychar, char, line_ending, not_line_ending},
+    bytes::complete::{tag, tag_no_case, take, take_till1},
+    character::complete::{anychar, char, line_ending, not_line_ending, satisfy},
     combinator::{map, map_res, not, opt, peek, recognize, rest, value, verify},
     error::{ErrorKind, ParseError},
     multi::{many0, many1, many_m_n, separated_list1},
@@ -245,6 +245,7 @@ impl FullParser {
 
     fn parse_inline<'a>(&self, input: &'a str) -> IResult<&'a str, Inline> {
         alt((
+            map(Self::parse_emoji_code, Inline::EmojiCode),
             map(Self::parse_plain, Inline::Plain),
             map(Self::parse_text, Inline::Text),
         ))(input)
@@ -255,7 +256,24 @@ impl FullParser {
     }
 
     fn parse_emoji_code<'a>(input: &'a str) -> IResult<&'a str, EmojiCode> {
-        todo!()
+        fn side<'a>(input: &'a str) -> IResult<&'a str, ()> {
+            not(satisfy(|c| c.is_ascii_alphanumeric()))(input)
+        }
+
+        delimited(
+            side,
+            delimited(
+                char(':'),
+                map(
+                    take_till1(|c: char| !c.is_ascii_alphanumeric() && !"_+-".contains(c)),
+                    |s: &str| EmojiCode {
+                        name: s.to_string(),
+                    },
+                ),
+                char(':'),
+            ),
+            side,
+        )(input)
     }
 
     fn parse_bold<'a>(input: &'a str) -> IResult<&'a str, Bold> {

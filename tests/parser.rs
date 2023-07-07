@@ -378,6 +378,19 @@ mod center {
     }
 }
 
+mod emoji_code {
+    use super::*;
+
+    #[test]
+    fn basic() {
+        let input = ":abc:";
+        let output = vec![Node::Inline(Inline::EmojiCode(EmojiCode {
+            name: "abc".to_string(),
+        }))];
+        assert_eq!(mfm::parse(input).unwrap(), output);
+    }
+}
+
 mod plain {
     use super::*;
 
