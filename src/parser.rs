@@ -22,6 +22,20 @@ fn space<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, &'a str
     alt((tag("\u{0020}"), tag("\u{3000}"), tag("\t")))(input)
 }
 
+/// Verifies if the previous character is line ending or empty.
+fn line_begin<'a, E>(last_char: Option<char>) -> impl FnMut(&'a str) -> IResult<&'a str, (), E>
+where
+    E: ParseError<&'a str>,
+{
+    verify(success(()), move |_| {
+        if let Some(c) = last_char {
+            "\r\n".contains(c)
+        } else {
+            true
+        }
+    })
+}
+
 /// Verifies if the next character is line ending or empty.
 fn line_end<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, (), E> {
     alt((
@@ -130,7 +144,7 @@ impl FullParser {
         map(
             many0_keep_last_char(|i, last_char| {
                 alt((
-                    map(|s| self.parse_block(s), Node::Block),
+                    map(|s| self.parse_block(s, last_char), Node::Block),
                     map(|s| self.parse_inline(s, last_char), Node::Inline),
                 ))(i)
             }),
@@ -138,19 +152,22 @@ impl FullParser {
         )(input)
     }
 
-    fn parse_block<'a>(&self, input: &'a str) -> IResult<&'a str, Block> {
+    fn parse_block<'a>(&self, input: &'a str, last_char: Option<char>) -> IResult<&'a str, Block> {
         alt((
-            map(|s| self.parse_quote(s), Block::Quote),
-            map(Self::parse_search, Block::Search),
-            map(Self::parse_code_block, Block::CodeBlock),
-            map(Self::parse_math_block, Block::MathBlock),
-            map(|s| self.parse_center(s), Block::Center),
+            map(|s| self.parse_quote(s, last_char), Block::Quote),
+            map(|s| Self::parse_search(s, last_char), Block::Search),
+            map(|s| Self::parse_code_block(s, last_char), Block::CodeBlock),
+            map(|s| Self::parse_math_block(s, last_char), Block::MathBlock),
+            map(|s| self.parse_center(s, last_char), Block::Center),
         ))(input)
     }
 
-    fn parse_quote<'a>(&self, input: &'a str) -> IResult<&'a str, Quote> {
+    fn parse_quote<'a>(&self, input: &'a str, last_char: Option<char>) -> IResult<&'a str, Quote> {
         delimited(
-            many_m_n(0, 2, line_ending),
+            alt((
+                value((), many_m_n(1, 2, line_ending)),
+                line_begin(last_char),
+            )),
             map_res(
                 map(
                     verify(
@@ -177,7 +194,7 @@ impl FullParser {
         )(input)
     }
 
-    fn parse_search<'a>(input: &'a str) -> IResult<&'a str, Search> {
+    fn parse_search<'a>(input: &'a str, last_char: Option<char>) -> IResult<&'a str, Search> {
         fn button<'a>(input: &'a str) -> IResult<&'a str, &'a str> {
             recognize(alt((
                 delimited(
@@ -190,7 +207,7 @@ impl FullParser {
         }
 
         delimited(
-            opt(line_ending),
+            alt((value((), line_ending), line_begin(last_char))),
             map(
                 tuple((
                     recognize(many1(preceded(
@@ -215,10 +232,13 @@ impl FullParser {
         )(input)
     }
 
-    fn parse_code_block<'a>(input: &'a str) -> IResult<&'a str, CodeBlock> {
+    fn parse_code_block<'a>(
+        input: &'a str,
+        last_char: Option<char>,
+    ) -> IResult<&'a str, CodeBlock> {
         const MARK: &str = "```";
         delimited(
-            opt(line_ending),
+            alt((value((), line_ending), line_begin(last_char))),
             delimited(
                 tag(MARK),
                 map(
@@ -241,11 +261,14 @@ impl FullParser {
         )(input)
     }
 
-    fn parse_math_block<'a>(input: &'a str) -> IResult<&'a str, MathBlock> {
+    fn parse_math_block<'a>(
+        input: &'a str,
+        last_char: Option<char>,
+    ) -> IResult<&'a str, MathBlock> {
         const OPEN: &str = r"\[";
         const CLOSE: &str = r"\]";
         delimited(
-            opt(line_ending),
+            alt((value((), line_ending), line_begin(last_char))),
             delimited(
                 tag(OPEN),
                 delimited(
@@ -267,12 +290,16 @@ impl FullParser {
         )(input)
     }
 
-    fn parse_center<'a>(&self, input: &'a str) -> IResult<&'a str, Center> {
+    fn parse_center<'a>(
+        &self,
+        input: &'a str,
+        last_char: Option<char>,
+    ) -> IResult<&'a str, Center> {
         const OPEN: &str = "<center>";
         const CLOSE: &str = "</center>";
         map_res(
             delimited(
-                opt(line_ending),
+                alt((value((), line_ending), line_begin(last_char))),
                 delimited(
                     tag(OPEN),
                     delimited(

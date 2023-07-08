@@ -255,6 +255,15 @@ hoge"#;
             ];
             assert_eq!(mfm::parse(input).unwrap(), output);
         }
+
+        #[test]
+        fn open_tag_not_on_line_beginning() {
+            let input = "before> aaa";
+            let output = vec![Node::Inline(Inline::Text(Text {
+                text: "before> aaa".to_string(),
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
     }
 
     mod search {
@@ -399,6 +408,24 @@ hoge"#;
             ];
             assert_eq!(mfm::parse(input).unwrap(), output);
         }
+
+        #[test]
+        fn mark_not_on_line_ending() {
+            let input = "```\naaa\n```after";
+            let output = vec![Node::Inline(Inline::Text(Text {
+                text: "```\naaa\n```after".to_string(),
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn mark_not_on_line_beginning() {
+            let input = "before```\naaa\n```";
+            let output = vec![Node::Inline(Inline::Text(Text {
+                text: "before```\naaa\n```".to_string(),
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
     }
 
     mod math_block {
@@ -440,7 +467,6 @@ hoge"#;
         }
 
         #[test]
-        #[ignore]
         fn open_tag_not_on_line_beginning() {
             let input = "before\\[aaa\\]";
             let output = vec![Node::Inline(Inline::Text(Text {
@@ -478,6 +504,24 @@ hoge"#;
                     text: "after".to_string(),
                 })),
             ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn close_tag_not_on_line_ending() {
+            let input = "<center>aaa</center>after";
+            let output = vec![Node::Inline(Inline::Text(Text {
+                text: "<center>aaa</center>after".to_string(),
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn open_tag_not_on_line_beginning() {
+            let input = "before<center>aaa</center>";
+            let output = vec![Node::Inline(Inline::Text(Text {
+                text: "before<center>aaa</center>".to_string(),
+            }))];
             assert_eq!(mfm::parse(input).unwrap(), output);
         }
     }
