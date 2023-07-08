@@ -1016,6 +1016,19 @@ hoge"#;
         }
     }
 
+    mod math_inline {
+        use super::*;
+
+        #[test]
+        fn basic() {
+            let input = r"\(x = {-b \pm \sqrt{b^2-4ac} \over 2a}\)";
+            let output = vec![Node::Inline(Inline::MathInline(MathInline {
+                formula: r"x = {-b \pm \sqrt{b^2-4ac} \over 2a}".to_string(),
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+    }
+
     mod plain {
         use super::*;
 

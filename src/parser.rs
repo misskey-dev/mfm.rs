@@ -345,6 +345,7 @@ impl FullParser {
             map(|s| self.parse_italic(s, last_char), Inline::Italic),
             map(|s| self.parse_strike(s), Inline::Strike),
             map(Self::parse_inline_code, Inline::InlineCode),
+            map(Self::parse_math_inline, Inline::MathInline),
             map(Self::parse_plain, Inline::Plain),
             map(Self::parse_text, Inline::Text),
         ))(input)
@@ -656,7 +657,21 @@ impl FullParser {
     }
 
     fn parse_math_inline<'a>(input: &'a str) -> IResult<&'a str, MathInline> {
-        todo!()
+        const OPEN: &str = r"\(";
+        const CLOSE: &str = r"\)";
+        delimited(
+            tag(OPEN),
+            map(
+                recognize(many1(preceded(
+                    not(alt((tag(CLOSE), line_ending))),
+                    anychar,
+                ))),
+                |formula: &str| MathInline {
+                    formula: formula.to_string(),
+                },
+            ),
+            tag(CLOSE),
+        )(input)
     }
 
     fn parse_mention<'a>(input: &'a str) -> IResult<&'a str, Mention> {
