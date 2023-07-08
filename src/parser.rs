@@ -343,6 +343,7 @@ impl FullParser {
             map(|s| self.parse_bold(s), Inline::Bold),
             map(|s| self.parse_small(s), Inline::Small),
             map(|s| self.parse_italic(s, last_char), Inline::Italic),
+            map(|s| self.parse_strike(s), Inline::Strike),
             map(Self::parse_plain, Inline::Plain),
             map(Self::parse_text, Inline::Text),
         ))(input)
@@ -580,8 +581,57 @@ impl FullParser {
         )(input)
     }
 
-    fn parse_strike<'a>(input: &'a str) -> IResult<&'a str, Strike> {
-        todo!()
+    fn parse_strike<'a>(&self, input: &'a str) -> IResult<&'a str, Strike> {
+        let strike_tag = |input: &'a str| -> IResult<&'a str, Vec<Inline>> {
+            const OPEN: &str = "<s>";
+            const CLOSE: &str = "</s>";
+            delimited(
+                tag(OPEN),
+                |contents| {
+                    if let Some(inner) = self.nest() {
+                        map(
+                            many1(preceded(not(tag(CLOSE)), |s| inner.parse_inline(s, None))),
+                            merge_text_inline,
+                        )(contents)
+                    } else {
+                        map(take_until1(CLOSE), |s: &str| {
+                            vec![Inline::Text(Text {
+                                text: s.to_string(),
+                            })]
+                        })(contents)
+                    }
+                },
+                tag(CLOSE),
+            )(input)
+        };
+        let strike_wave = |input: &'a str| -> IResult<&'a str, Vec<Inline>> {
+            const MARK: &str = "~~";
+            delimited(
+                tag(MARK),
+                |contents| {
+                    if let Some(inner) = self.nest() {
+                        map(
+                            many1(preceded(not(alt((tag(MARK), line_ending))), |s| {
+                                inner.parse_inline(s, None)
+                            })),
+                            merge_text_inline,
+                        )(contents)
+                    } else {
+                        map(
+                            recognize(many1(preceded(not(alt((tag(MARK), line_ending))), anychar))),
+                            |text: &str| {
+                                vec![Inline::Text(Text {
+                                    text: text.to_string(),
+                                })]
+                            },
+                        )(contents)
+                    }
+                },
+                tag(MARK),
+            )(input)
+        };
+
+        map(alt((strike_tag, strike_wave)), Strike)(input)
     }
 
     fn parse_inline_code<'a>(input: &'a str) -> IResult<&'a str, InlineCode> {

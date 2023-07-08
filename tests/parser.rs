@@ -614,7 +614,6 @@ hoge"#;
             }
 
             #[test]
-            #[ignore]
             fn inline_contents() {
                 let input = "**123~~abc~~123**";
                 let output = vec![Node::Inline(Inline::Bold(Bold(vec![
@@ -632,7 +631,6 @@ hoge"#;
             }
 
             #[test]
-            #[ignore]
             fn multiple_line_contents() {
                 let input = "**123\n~~abc~~\n123**";
                 let output = vec![Node::Inline(Inline::Bold(Bold(vec![
@@ -663,7 +661,6 @@ hoge"#;
             }
 
             #[test]
-            #[ignore]
             fn inline_contents() {
                 let input = "<b>123~~abc~~123</b>";
                 let output = vec![Node::Inline(Inline::Bold(Bold(vec![
@@ -681,7 +678,6 @@ hoge"#;
             }
 
             #[test]
-            #[ignore]
             fn multiple_line_contents() {
                 let input = "<b>123\n~~abc~~\n123</b>";
                 let output = vec![Node::Inline(Inline::Bold(Bold(vec![
@@ -946,6 +942,49 @@ hoge"#;
         }
     }
 
+    mod strike {
+        use super::*;
+
+        mod tag {
+            use super::*;
+
+            #[test]
+            fn basic() {
+                let input = "<s>foo</s>";
+                let output = vec![Node::Inline(Inline::Strike(Strike(vec![Inline::Text(
+                    Text {
+                        text: "foo".to_string(),
+                    },
+                )])))];
+                assert_eq!(mfm::parse(input).unwrap(), output);
+            }
+        }
+
+        mod wave {
+            use super::*;
+
+            #[test]
+            fn basic() {
+                let input = "~~foo~~";
+                let output = vec![Node::Inline(Inline::Strike(Strike(vec![Inline::Text(
+                    Text {
+                        text: "foo".to_string(),
+                    },
+                )])))];
+                assert_eq!(mfm::parse(input).unwrap(), output);
+            }
+
+            #[test]
+            fn newline_between_marks() {
+                let input = "~~foo\nbar~~";
+                let output = vec![Node::Inline(Inline::Text(Text {
+                    text: "~~foo\nbar~~".to_string(),
+                }))];
+                assert_eq!(mfm::parse(input).unwrap(), output);
+            }
+        }
+    }
+
     mod plain {
         use super::*;
 
@@ -1070,6 +1109,32 @@ hoge"#;
                 })],
             ))])))];
             assert_eq!(mfm::parse_with_nest_limit(input, 2).unwrap(), output);
+        }
+
+        mod strike {
+            use super::*;
+
+            #[test]
+            fn basic() {
+                let input = "<b><b>~~abc~~</b></b>";
+                let output = vec![Node::Inline(Inline::Bold(Bold(vec![Inline::Bold(Bold(
+                    vec![Inline::Text(Text {
+                        text: "~~abc~~".to_string(),
+                    })],
+                ))])))];
+                assert_eq!(mfm::parse_with_nest_limit(input, 2).unwrap(), output);
+            }
+
+            #[test]
+            fn tag() {
+                let input = "<b><b><s>abc</s></b></b>";
+                let output = vec![Node::Inline(Inline::Bold(Bold(vec![Inline::Bold(Bold(
+                    vec![Inline::Text(Text {
+                        text: "<s>abc</s>".to_string(),
+                    })],
+                ))])))];
+                assert_eq!(mfm::parse_with_nest_limit(input, 2).unwrap(), output);
+            }
         }
     }
 }
