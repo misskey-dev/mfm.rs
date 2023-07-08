@@ -8,6 +8,8 @@ use nom::{
     sequence::{delimited, pair, preceded, separated_pair, tuple},
     IResult,
 };
+use nom_regex::{lib::regex::Regex, str::re_find};
+use once_cell::sync::Lazy;
 
 use crate::{
     node::*,
@@ -106,6 +108,7 @@ impl SimpleParser {
 pub struct FullParser {
     nest_limit: u32,
     depth: u32,
+    link_label: bool,
 }
 
 impl Default for FullParser {
@@ -113,6 +116,7 @@ impl Default for FullParser {
         FullParser {
             nest_limit: 20,
             depth: 0,
+            link_label: false,
         }
     }
 }
@@ -123,6 +127,7 @@ impl FullParser {
         FullParser {
             nest_limit,
             depth: 0,
+            link_label: false,
         }
     }
 
@@ -133,6 +138,7 @@ impl FullParser {
             Some(FullParser {
                 nest_limit: self.nest_limit,
                 depth,
+                link_label: self.link_label,
             })
         } else {
             None
@@ -346,6 +352,13 @@ impl FullParser {
             map(|s| self.parse_strike(s), Inline::Strike),
             map(Self::parse_inline_code, Inline::InlineCode),
             map(Self::parse_math_inline, Inline::MathInline),
+            map(
+                |s| self.parse_mention(s, last_char),
+                |e| match e {
+                    ValueOrText::Value(mention) => Inline::Mention(mention),
+                    ValueOrText::Text(text) => Inline::Text(text),
+                },
+            ),
             map(Self::parse_plain, Inline::Plain),
             map(Self::parse_text, Inline::Text),
         ))(input)
@@ -674,8 +687,75 @@ impl FullParser {
         )(input)
     }
 
-    fn parse_mention<'a>(input: &'a str) -> IResult<&'a str, Mention> {
-        todo!()
+    fn parse_mention<'a>(
+        &self,
+        input: &'a str,
+        last_char: Option<char>,
+    ) -> IResult<&'a str, ValueOrText<Mention>> {
+        // not empty username without trailing dashes
+        fn username<'a>(input: &'a str) -> IResult<&'a str, &'a str> {
+            static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[[:word:]-]+[[:word:]]").unwrap());
+            preceded(
+                char('@'),
+                preceded(not(char('-')), re_find(Lazy::force(&RE).clone())),
+            )(input)
+        }
+
+        // not empty hostname without trailing dashes or dots
+        fn hostname<'a>(input: &'a str) -> IResult<&'a str, &'a str> {
+            static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[[:word:].-]+[[:word:]]").unwrap());
+            preceded(
+                char('@'),
+                preceded(
+                    not(alt((char('-'), char('.')))),
+                    re_find(Lazy::force(&RE).clone()),
+                ),
+            )(input)
+        }
+
+        fn valid<'a>(input: &'a str) -> IResult<&'a str, Mention> {
+            map(pair(username, opt(hostname)), |(first, second)| Mention {
+                username: first.to_string(),
+                host: second.map(String::from),
+                acct: if let Some(second) = second {
+                    format!("@{first}@{second}")
+                } else {
+                    format!("@{first}")
+                },
+            })(input)
+        }
+
+        fn possibly_invalid<'a>(input: &'a str) -> IResult<&'a str, Text> {
+            map(
+                recognize(tuple((
+                    char('@'),
+                    take_till1(|c: char| !c.is_ascii_alphanumeric() && !"_-".contains(c)),
+                    char('@'),
+                    take_till1(|c: char| !c.is_ascii_alphanumeric() && !"_.-".contains(c)),
+                ))),
+                |s: &str| Text {
+                    text: s.to_string(),
+                },
+            )(input)
+        }
+
+        let res_mention = preceded(
+            verify(success(()), |_| {
+                !self.link_label && last_char.map_or(true, |c| !c.is_ascii_alphanumeric())
+            }),
+            map(valid, ValueOrText::Value),
+        )(input);
+        if let Ok((_, ValueOrText::Value(Mention { host: Some(_), .. }))) = res_mention {
+            res_mention
+        } else {
+            let res_text = map(possibly_invalid, ValueOrText::Text)(input);
+            if res_text.is_ok() {
+                // return Text to ignore the latter part
+                res_text
+            } else {
+                res_mention
+            }
+        }
     }
 
     fn parse_hashtag<'a>(input: &'a str) -> IResult<&'a str, Hashtag> {

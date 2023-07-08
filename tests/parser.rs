@@ -161,7 +161,6 @@ mod full_parser {
         }
 
         #[test]
-        #[ignore]
         fn nest_block_with_inline() {
             let input = r#"
 > <center>
@@ -1025,6 +1024,262 @@ hoge"#;
             let output = vec![Node::Inline(Inline::MathInline(MathInline {
                 formula: r"x = {-b \pm \sqrt{b^2-4ac} \over 2a}".to_string(),
             }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+    }
+
+    mod mention {
+        use super::*;
+
+        #[test]
+        fn basic() {
+            let input = "@abc";
+            let output = vec![Node::Inline(Inline::Mention(Mention {
+                username: "abc".to_string(),
+                host: None,
+                acct: "@abc".to_string(),
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn basic_2() {
+            let input = "before @abc after";
+            let output = vec![
+                Node::Inline(Inline::Text(Text {
+                    text: "before ".to_string(),
+                })),
+                Node::Inline(Inline::Mention(Mention {
+                    username: "abc".to_string(),
+                    host: None,
+                    acct: "@abc".to_string(),
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: " after".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn basic_remote() {
+            let input = "@abc@misskey.io";
+            let output = vec![Node::Inline(Inline::Mention(Mention {
+                username: "abc".to_string(),
+                host: Some("misskey.io".to_string()),
+                acct: "@abc@misskey.io".to_string(),
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn basic_remote_2() {
+            let input = "before @abc@misskey.io after";
+            let output = vec![
+                Node::Inline(Inline::Text(Text {
+                    text: "before ".to_string(),
+                })),
+                Node::Inline(Inline::Mention(Mention {
+                    username: "abc".to_string(),
+                    host: Some("misskey.io".to_string()),
+                    acct: "@abc@misskey.io".to_string(),
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: " after".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn basic_remote_3() {
+            let input = "before\n@abc@misskey.io\nafter";
+            let output = vec![
+                Node::Inline(Inline::Text(Text {
+                    text: "before\n".to_string(),
+                })),
+                Node::Inline(Inline::Mention(Mention {
+                    username: "abc".to_string(),
+                    host: Some("misskey.io".to_string()),
+                    acct: "@abc@misskey.io".to_string(),
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: "\nafter".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn ignore_mail_address() {
+            let input = "abc@example.com";
+            let output = vec![Node::Inline(Inline::Text(Text {
+                text: "abc@example.com".to_string(),
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn non_ascii_before_mention() {
+            let input = "あいう@abc";
+            let output = vec![
+                Node::Inline(Inline::Text(Text {
+                    text: "あいう".to_string(),
+                })),
+                Node::Inline(Inline::Mention(Mention {
+                    username: "abc".to_string(),
+                    host: None,
+                    acct: "@abc".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn invalid_char_only_username() {
+            let input = "@-";
+            let output = vec![Node::Inline(Inline::Text(Text {
+                text: "@-".to_string(),
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+
+            let input = "@-@aaa";
+            let output = vec![Node::Inline(Inline::Text(Text {
+                text: "@-@aaa".to_string(),
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn invalid_char_only_hostname() {
+            let input = "@abc@.";
+            let output = vec![Node::Inline(Inline::Text(Text {
+                text: "@abc@.".to_string(),
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn allow_dash_in_username() {
+            let input = "@abc-d";
+            let output = vec![Node::Inline(Inline::Mention(Mention {
+                username: "abc-d".to_string(),
+                host: None,
+                acct: "@abc-d".to_string(),
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn disallow_dash_in_head_of_username() {
+            let input = "@-abc";
+            let output = vec![Node::Inline(Inline::Text(Text {
+                text: "@-abc".to_string(),
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+
+            let input = "@-abc@aaa";
+            let output = vec![Node::Inline(Inline::Text(Text {
+                text: "@-abc@aaa".to_string(),
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn disallow_dash_in_tail_of_username() {
+            let input = "@abc-";
+            let output = vec![
+                Node::Inline(Inline::Mention(Mention {
+                    username: "abc".to_string(),
+                    host: None,
+                    acct: "@abc".to_string(),
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: "-".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+
+            let input = "@abc--";
+            let output = vec![
+                Node::Inline(Inline::Mention(Mention {
+                    username: "abc".to_string(),
+                    host: None,
+                    acct: "@abc".to_string(),
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: "--".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+
+            let input = "@abc-@aaa";
+            let output = vec![Node::Inline(Inline::Text(Text {
+                text: "@abc-@aaa".to_string(),
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn disallow_dot_in_head_of_hostname() {
+            let input = "@abc@.aaa";
+            let output = vec![Node::Inline(Inline::Text(Text {
+                text: "@abc@.aaa".to_string(),
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn disallow_dot_in_tail_of_hostname() {
+            let input = "@abc@aaa.";
+            let output = vec![
+                Node::Inline(Inline::Mention(Mention {
+                    username: "abc".to_string(),
+                    host: Some("aaa".to_string()),
+                    acct: "@abc@aaa".to_string(),
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: ".".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn disallow_dash_in_head_of_hostname() {
+            let input = "@abc@-aaa";
+            let output = vec![Node::Inline(Inline::Text(Text {
+                text: "@abc@-aaa".to_string(),
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn disallow_dash_in_tail_of_hostname() {
+            let input = "@abc@aaa-";
+            let output = vec![
+                Node::Inline(Inline::Mention(Mention {
+                    username: "abc".to_string(),
+                    host: Some("aaa".to_string()),
+                    acct: "@abc@aaa".to_string(),
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: "-".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+
+            let input = "@abc@aaa.-";
+            let output = vec![
+                Node::Inline(Inline::Mention(Mention {
+                    username: "abc".to_string(),
+                    host: Some("aaa".to_string()),
+                    acct: "@abc@aaa".to_string(),
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: ".-".to_string(),
+                })),
+            ];
             assert_eq!(mfm::parse(input).unwrap(), output);
         }
     }

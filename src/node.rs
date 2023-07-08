@@ -150,3 +150,9 @@ impl From<Text> for Simple {
         Simple::Text(text)
     }
 }
+
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub enum ValueOrText<T> {
+    Value(T),
+    Text(Text),
+}
