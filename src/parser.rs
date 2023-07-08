@@ -344,6 +344,7 @@ impl FullParser {
             map(|s| self.parse_small(s), Inline::Small),
             map(|s| self.parse_italic(s, last_char), Inline::Italic),
             map(|s| self.parse_strike(s), Inline::Strike),
+            map(Self::parse_inline_code, Inline::InlineCode),
             map(Self::parse_plain, Inline::Plain),
             map(Self::parse_text, Inline::Text),
         ))(input)
@@ -635,7 +636,23 @@ impl FullParser {
     }
 
     fn parse_inline_code<'a>(input: &'a str) -> IResult<&'a str, InlineCode> {
-        todo!()
+        delimited(
+            char('`'),
+            map(
+                recognize(many1(preceded(
+                    not(alt((
+                        value((), char('`')),
+                        value((), char('´')),
+                        value((), line_ending),
+                    ))),
+                    anychar,
+                ))),
+                |code: &str| InlineCode {
+                    code: code.to_string(),
+                },
+            ),
+            char('`'),
+        )(input)
     }
 
     fn parse_math_inline<'a>(input: &'a str) -> IResult<&'a str, MathInline> {

@@ -985,6 +985,37 @@ hoge"#;
         }
     }
 
+    mod inline_code {
+        use super::*;
+
+        #[test]
+        fn basic() {
+            let input = r#"`var x = "Strawberry Pasta";`"#;
+            let output = vec![Node::Inline(Inline::InlineCode(InlineCode {
+                code: r#"var x = "Strawberry Pasta";"#.to_string(),
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn disallow_line_break() {
+            let input = "`foo\nbar`";
+            let output = vec![Node::Inline(Inline::Text(Text {
+                text: "`foo\nbar`".to_string(),
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn disallow_acute_accent() {
+            let input = "`foo´bar`";
+            let output = vec![Node::Inline(Inline::Text(Text {
+                text: "`foo´bar`".to_string(),
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+    }
+
     mod plain {
         use super::*;
 
