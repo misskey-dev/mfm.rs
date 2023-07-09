@@ -1284,6 +1284,383 @@ hoge"#;
         }
     }
 
+    mod hashtag {
+        use super::*;
+
+        #[test]
+        fn basic() {
+            let input = "#abc";
+            let output = vec![Node::Inline(Inline::Hashtag(Hashtag {
+                hashtag: "abc".to_string(),
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn basic_2() {
+            let input = "before #abc after";
+            let output = vec![
+                Node::Inline(Inline::Text(Text {
+                    text: "before ".to_string(),
+                })),
+                Node::Inline(Inline::Hashtag(Hashtag {
+                    hashtag: "abc".to_string(),
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: " after".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        #[ignore]
+        fn with_keycap_number_sign() {
+            let input = "#️⃣abc123 #abc";
+            let output = vec![
+                Node::Inline(Inline::UnicodeEmoji(UnicodeEmoji {
+                    emoji: "#️⃣".to_string(),
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: "abc123 ".to_string(),
+                })),
+                Node::Inline(Inline::Hashtag(Hashtag {
+                    hashtag: "abc".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        #[ignore]
+        fn with_keycap_number_sign_2() {
+            let input = "abc\n#️⃣abc";
+            let output = vec![
+                Node::Inline(Inline::Text(Text {
+                    text: "abc\n".to_string(),
+                })),
+                Node::Inline(Inline::UnicodeEmoji(UnicodeEmoji {
+                    emoji: "#️⃣".to_string(),
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: "abc".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn alnum_before_hashtag() {
+            let input = "abc#abc";
+            let output = vec![Node::Inline(Inline::Text(Text {
+                text: "abc#abc".to_string(),
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+
+            let input = "あいう#abc";
+            let output = vec![
+                Node::Inline(Inline::Text(Text {
+                    text: "あいう".to_string(),
+                })),
+                Node::Inline(Inline::Hashtag(Hashtag {
+                    hashtag: "abc".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn ignore_comma_and_period() {
+            let input = "Foo #bar, baz #piyo.";
+            let output = vec![
+                Node::Inline(Inline::Text(Text {
+                    text: "Foo ".to_string(),
+                })),
+                Node::Inline(Inline::Hashtag(Hashtag {
+                    hashtag: "bar".to_string(),
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: ", baz ".to_string(),
+                })),
+                Node::Inline(Inline::Hashtag(Hashtag {
+                    hashtag: "piyo".to_string(),
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: ".".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn ignore_exclamation_mark() {
+            let input = "#Foo!";
+            let output = vec![
+                Node::Inline(Inline::Hashtag(Hashtag {
+                    hashtag: "Foo".to_string(),
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: "!".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn ignore_colon() {
+            let input = "#Foo:";
+            let output = vec![
+                Node::Inline(Inline::Hashtag(Hashtag {
+                    hashtag: "Foo".to_string(),
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: ":".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn ignore_single_quote() {
+            let input = "#Foo'";
+            let output = vec![
+                Node::Inline(Inline::Hashtag(Hashtag {
+                    hashtag: "Foo".to_string(),
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: "'".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn ignore_double_quote() {
+            let input = "#Foo\"";
+            let output = vec![
+                Node::Inline(Inline::Hashtag(Hashtag {
+                    hashtag: "Foo".to_string(),
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: "\"".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn ignore_square_bracket() {
+            let input = "#Foo]";
+            let output = vec![
+                Node::Inline(Inline::Hashtag(Hashtag {
+                    hashtag: "Foo".to_string(),
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: "]".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn ignore_slash() {
+            let input = "#foo/bar";
+            let output = vec![
+                Node::Inline(Inline::Hashtag(Hashtag {
+                    hashtag: "foo".to_string(),
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: "/bar".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn ignore_angle_bracket() {
+            let input = "#foo<bar>";
+            let output = vec![
+                Node::Inline(Inline::Hashtag(Hashtag {
+                    hashtag: "foo".to_string(),
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: "<bar>".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn allow_including_number() {
+            let input = "#foo123";
+            let output = vec![Node::Inline(Inline::Hashtag(Hashtag {
+                hashtag: "foo123".to_string(),
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn with_parens() {
+            let input = "(#foo)";
+            let output = vec![
+                Node::Inline(Inline::Text(Text {
+                    text: "(".to_string(),
+                })),
+                Node::Inline(Inline::Hashtag(Hashtag {
+                    hashtag: "foo".to_string(),
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: ")".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+
+            let input = "#(foo)";
+            let output = vec![Node::Inline(Inline::Hashtag(Hashtag {
+                hashtag: "(foo)".to_string(),
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn with_brackets() {
+            let input = "[#foo]";
+            let output = vec![
+                Node::Inline(Inline::Text(Text {
+                    text: "[".to_string(),
+                })),
+                Node::Inline(Inline::Hashtag(Hashtag {
+                    hashtag: "foo".to_string(),
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: "]".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+
+            let input = "#[foo]";
+            let output = vec![Node::Inline(Inline::Hashtag(Hashtag {
+                hashtag: "[foo]".to_string(),
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn with_fullwidth_parens() {
+            let input = "（#foo）";
+            let output = vec![
+                Node::Inline(Inline::Text(Text {
+                    text: "（".to_string(),
+                })),
+                Node::Inline(Inline::Hashtag(Hashtag {
+                    hashtag: "foo".to_string(),
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: "）".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+
+            let input = "#（foo）";
+            let output = vec![Node::Inline(Inline::Hashtag(Hashtag {
+                hashtag: "（foo）".to_string(),
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn with_corner_brackets() {
+            let input = "「#foo」";
+            let output = vec![
+                Node::Inline(Inline::Text(Text {
+                    text: "「".to_string(),
+                })),
+                Node::Inline(Inline::Hashtag(Hashtag {
+                    hashtag: "foo".to_string(),
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: "」".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+
+            let input = "#「foo」";
+            let output = vec![Node::Inline(Inline::Hashtag(Hashtag {
+                hashtag: "「foo」".to_string(),
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn with_mixed_brackets() {
+            let input = "「#foo(bar)」";
+            let output = vec![
+                Node::Inline(Inline::Text(Text {
+                    text: "「".to_string(),
+                })),
+                Node::Inline(Inline::Hashtag(Hashtag {
+                    hashtag: "foo(bar)".to_string(),
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: "」".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn with_parens_space_before() {
+            let input = "(bar #foo)";
+            let output = vec![
+                Node::Inline(Inline::Text(Text {
+                    text: "(bar ".to_string(),
+                })),
+                Node::Inline(Inline::Hashtag(Hashtag {
+                    hashtag: "foo".to_string(),
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: ")".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn with_square_brackets_space_before() {
+            let input = "「bar #foo」";
+            let output = vec![
+                Node::Inline(Inline::Text(Text {
+                    text: "「bar ".to_string(),
+                })),
+                Node::Inline(Inline::Hashtag(Hashtag {
+                    hashtag: "foo".to_string(),
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: "」".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn disallow_number_only() {
+            let input = "#123";
+            let output = vec![Node::Inline(Inline::Text(Text {
+                text: "#123".to_string(),
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn disallow_number_only_with_parens() {
+            let input = "(#123)";
+            let output = vec![Node::Inline(Inline::Text(Text {
+                text: "(#123)".to_string(),
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+    }
+
     mod plain {
         use super::*;
 
@@ -1433,6 +1810,100 @@ hoge"#;
                     })],
                 ))])))];
                 assert_eq!(mfm::parse_with_nest_limit(input, 2).unwrap(), output);
+            }
+        }
+
+        mod hashtag {
+            use super::*;
+
+            #[test]
+            fn basic() {
+                let input = "<b>#abc(xyz)</b>";
+                let output = vec![Node::Inline(Inline::Bold(Bold(vec![Inline::Hashtag(
+                    Hashtag {
+                        hashtag: "abc(xyz)".to_string(),
+                    },
+                )])))];
+                assert_eq!(mfm::parse_with_nest_limit(input, 2).unwrap(), output);
+
+                let input = "<b>#abc(x(y)z)</b>";
+                let output = vec![Node::Inline(Inline::Bold(Bold(vec![
+                    Inline::Hashtag(Hashtag {
+                        hashtag: "abc".to_string(),
+                    }),
+                    Inline::Text(Text {
+                        text: "(x(y)z)".to_string(),
+                    }),
+                ])))];
+                assert_eq!(mfm::parse_with_nest_limit(input, 2).unwrap(), output);
+            }
+
+            #[test]
+            fn outside_parens() {
+                let input = "(#abc)";
+                let output = vec![
+                    Node::Inline(Inline::Text(Text {
+                        text: "(".to_string(),
+                    })),
+                    Node::Inline(Inline::Hashtag(Hashtag {
+                        hashtag: "abc".to_string(),
+                    })),
+                    Node::Inline(Inline::Text(Text {
+                        text: ")".to_string(),
+                    })),
+                ];
+                assert_eq!(mfm::parse(input).unwrap(), output);
+            }
+
+            #[test]
+            fn outside_brackets() {
+                let input = "[#abc]";
+                let output = vec![
+                    Node::Inline(Inline::Text(Text {
+                        text: "[".to_string(),
+                    })),
+                    Node::Inline(Inline::Hashtag(Hashtag {
+                        hashtag: "abc".to_string(),
+                    })),
+                    Node::Inline(Inline::Text(Text {
+                        text: "]".to_string(),
+                    })),
+                ];
+                assert_eq!(mfm::parse(input).unwrap(), output);
+            }
+
+            #[test]
+            fn outside_corner_brackets() {
+                let input = "「#abc」";
+                let output = vec![
+                    Node::Inline(Inline::Text(Text {
+                        text: "「".to_string(),
+                    })),
+                    Node::Inline(Inline::Hashtag(Hashtag {
+                        hashtag: "abc".to_string(),
+                    })),
+                    Node::Inline(Inline::Text(Text {
+                        text: "」".to_string(),
+                    })),
+                ];
+                assert_eq!(mfm::parse(input).unwrap(), output);
+            }
+
+            #[test]
+            fn outside_fullwidth_parens() {
+                let input = "（#abc）";
+                let output = vec![
+                    Node::Inline(Inline::Text(Text {
+                        text: "（".to_string(),
+                    })),
+                    Node::Inline(Inline::Hashtag(Hashtag {
+                        hashtag: "abc".to_string(),
+                    })),
+                    Node::Inline(Inline::Text(Text {
+                        text: "）".to_string(),
+                    })),
+                ];
+                assert_eq!(mfm::parse(input).unwrap(), output);
             }
         }
     }

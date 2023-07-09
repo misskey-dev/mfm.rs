@@ -1,6 +1,6 @@
 use nom::{
     branch::alt,
-    bytes::complete::{tag, tag_no_case, take, take_till1, take_until1},
+    bytes::complete::{tag, tag_no_case, take, take_till, take_till1, take_until1},
     character::complete::{anychar, char, line_ending, not_line_ending, satisfy},
     combinator::{consumed, map, map_res, not, opt, peek, recognize, rest, success, value, verify},
     error::{ErrorKind, ParseError},
@@ -359,6 +359,7 @@ impl FullParser {
                     ValueOrText::Text(text) => Inline::Text(text),
                 },
             ),
+            map(|s| self.parse_hashtag(s, last_char), Inline::Hashtag),
             map(Self::parse_plain, Inline::Plain),
             map(Self::parse_text, Inline::Text),
         ))(input)
@@ -758,8 +759,51 @@ impl FullParser {
         }
     }
 
-    fn parse_hashtag<'a>(input: &'a str) -> IResult<&'a str, Hashtag> {
-        todo!()
+    fn parse_hashtag<'a>(
+        &self,
+        input: &'a str,
+        last_char: Option<char>,
+    ) -> IResult<&'a str, Hashtag> {
+        fn is_not_hashtag_char(c: char) -> bool {
+            ".,!?'\"#:/[]【】()「」（）<>\u{0020}\u{3000}\t\r\n".contains(c)
+        }
+
+        fn inner_item<'a>(input: &'a str, depth: u32, nest_limit: u32) -> IResult<&'a str, ()> {
+            fn nest<'a>(input: &'a str, depth: u32, nest_limit: u32) -> IResult<&'a str, ()> {
+                let depth = depth + 1;
+                if depth < nest_limit {
+                    value((), many0(|s| inner_item(s, depth, nest_limit)))(input)
+                } else {
+                    value((), take_till(is_not_hashtag_char))(input)
+                }
+            }
+
+            alt((
+                delimited(char('('), |s| nest(s, depth, nest_limit), char(')')),
+                delimited(char('['), |s| nest(s, depth, nest_limit), char(']')),
+                delimited(char('「'), |s| nest(s, depth, nest_limit), char('」')),
+                delimited(char('（'), |s| nest(s, depth, nest_limit), char('）')),
+                value((), take_till1(is_not_hashtag_char)),
+            ))(input)
+        }
+
+        preceded(
+            verify(success(()), |_| {
+                !self.link_label && last_char.map_or(true, |c| !c.is_ascii_alphanumeric())
+            }),
+            preceded(
+                char('#'),
+                map(
+                    verify(
+                        recognize(many1(|s| inner_item(s, self.depth, self.nest_limit))),
+                        |s: &str| !s.chars().all(|c| c.is_ascii_digit()),
+                    ),
+                    |s| Hashtag {
+                        hashtag: s.to_string(),
+                    },
+                ),
+            ),
+        )(input)
     }
 
     fn parse_url<'a>(input: &'a str) -> IResult<&'a str, Url> {
