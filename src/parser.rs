@@ -1,6 +1,6 @@
 use nom::{
     branch::alt,
-    bytes::complete::{tag, tag_no_case, take, take_till, take_till1, take_until1},
+    bytes::complete::{is_not, tag, tag_no_case, take, take_till, take_till1, take_until1},
     character::complete::{anychar, char, line_ending, not_line_ending, satisfy},
     combinator::{consumed, map, map_res, not, opt, peek, recognize, rest, success, value, verify},
     error::{ErrorKind, ParseError},
@@ -361,6 +361,7 @@ impl FullParser {
             ),
             map(|s| self.parse_hashtag(s, last_char), Inline::Hashtag),
             map(|s| self.parse_url(s), Inline::Url),
+            map(|s| self.parse_link(s), Inline::Link),
             map(Self::parse_plain, Inline::Plain),
             map(Self::parse_text, Inline::Text),
         ))(input)
@@ -883,8 +884,51 @@ impl FullParser {
         )(input)
     }
 
-    fn parse_link<'a>(input: &'a str) -> IResult<&'a str, Link> {
-        todo!()
+    fn parse_link<'a>(&self, input: &'a str) -> IResult<&'a str, Link> {
+        preceded(
+            verify(success(()), |_| !self.link_label),
+            map(
+                tuple((
+                    opt(char('?')),
+                    delimited(
+                        char('['),
+                        |contents| {
+                            if let Some(FullParser {
+                                nest_limit, depth, ..
+                            }) = self.nest()
+                            {
+                                let inner = FullParser {
+                                    nest_limit,
+                                    depth,
+                                    link_label: true,
+                                };
+                                let res = map(
+                                    many1(preceded(
+                                        not(alt((value((), char(']')), value((), line_ending)))),
+                                        |s| inner.parse_inline(s, None),
+                                    )),
+                                    merge_text_inline,
+                                )(contents);
+                                res
+                            } else {
+                                map(is_not("]\r\n"), |s: &str| {
+                                    vec![Inline::Text(Text {
+                                        text: s.to_string(),
+                                    })]
+                                })(contents)
+                            }
+                        },
+                        char(']'),
+                    ),
+                    delimited(char('('), |s| self.parse_url(s), char(')')),
+                )),
+                |(silent, label, url)| Link {
+                    url: url.url,
+                    silent: silent.is_some(),
+                    children: label,
+                },
+            ),
+        )(input)
     }
 
     fn parse_fn<'a>(input: &'a str) -> IResult<&'a str, Fn> {

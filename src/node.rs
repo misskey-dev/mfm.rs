@@ -116,6 +116,7 @@ pub struct Url {
 pub struct Link {
     pub url: String,
     pub silent: bool,
+    pub children: Vec<Inline>,
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]

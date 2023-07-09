@@ -1874,6 +1874,264 @@ hoge"#;
         }
     }
 
+    mod link {
+        use super::*;
+
+        #[test]
+        fn basic() {
+            let input = "[official instance](https://misskey.io/@ai).";
+            let output = vec![
+                Node::Inline(Inline::Link(Link {
+                    silent: false,
+                    url: "https://misskey.io/@ai".to_string(),
+                    children: vec![Inline::Text(Text {
+                        text: "official instance".to_string(),
+                    })],
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: ".".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn silent_flag() {
+            let input = "?[official instance](https://misskey.io/@ai).";
+            let output = vec![
+                Node::Inline(Inline::Link(Link {
+                    silent: true,
+                    url: "https://misskey.io/@ai".to_string(),
+                    children: vec![Inline::Text(Text {
+                        text: "official instance".to_string(),
+                    })],
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: ".".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn with_angle_brackets_url() {
+            let input = "[official instance](<https://misskey.io/@ai>).";
+            let output = vec![
+                Node::Inline(Inline::Link(Link {
+                    silent: false,
+                    url: "https://misskey.io/@ai".to_string(),
+                    children: vec![Inline::Text(Text {
+                        text: "official instance".to_string(),
+                    })],
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: ".".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn prevent_xss() {
+            let input = "[click here](javascript:foo)";
+            let output = vec![Node::Inline(Inline::Text(Text {
+                text: "[click here](javascript:foo)".to_string(),
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        mod cannot_nest_a_url_in_a_link_label {
+            use super::*;
+
+            #[test]
+            fn basic() {
+                let input = "official instance: [https://misskey.io/@ai](https://misskey.io/@ai).";
+                let output = vec![
+                    Node::Inline(Inline::Text(Text {
+                        text: "official instance: ".to_string(),
+                    })),
+                    Node::Inline(Inline::Link(Link {
+                        silent: false,
+                        url: "https://misskey.io/@ai".to_string(),
+                        children: vec![Inline::Text(Text {
+                            text: "https://misskey.io/@ai".to_string(),
+                        })],
+                    })),
+                    Node::Inline(Inline::Text(Text {
+                        text: ".".to_string(),
+                    })),
+                ];
+                assert_eq!(mfm::parse(input).unwrap(), output);
+            }
+
+            #[test]
+            fn nested() {
+                let input = "official instance: [https://misskey.io/@ai**https://misskey.io/@ai**](https://misskey.io/@ai).";
+                let output = vec![
+                    Node::Inline(Inline::Text(Text {
+                        text: "official instance: ".to_string(),
+                    })),
+                    Node::Inline(Inline::Link(Link {
+                        silent: false,
+                        url: "https://misskey.io/@ai".to_string(),
+                        children: vec![
+                            Inline::Text(Text {
+                                text: "https://misskey.io/@ai".to_string(),
+                            }),
+                            Inline::Bold(Bold(vec![Inline::Text(Text {
+                                text: "https://misskey.io/@ai".to_string(),
+                            })])),
+                        ],
+                    })),
+                    Node::Inline(Inline::Text(Text {
+                        text: ".".to_string(),
+                    })),
+                ];
+                assert_eq!(mfm::parse(input).unwrap(), output);
+            }
+        }
+
+        mod cannot_nest_a_link_in_a_link_label {
+            use super::*;
+
+            #[test]
+            fn basic() {
+                let input = "official instance: [[https://misskey.io/@ai](https://misskey.io/@ai)](https://misskey.io/@ai).";
+                let output = vec![
+                    Node::Inline(Inline::Text(Text {
+                        text: "official instance: ".to_string(),
+                    })),
+                    Node::Inline(Inline::Link(Link {
+                        silent: false,
+                        url: "https://misskey.io/@ai".to_string(),
+                        children: vec![Inline::Text(Text {
+                            text: "[https://misskey.io/@ai".to_string(),
+                        })],
+                    })),
+                    Node::Inline(Inline::Text(Text {
+                        text: "](".to_string(),
+                    })),
+                    Node::Inline(Inline::Url(Url {
+                        url: "https://misskey.io/@ai".to_string(),
+                        brackets: false,
+                    })),
+                    Node::Inline(Inline::Text(Text {
+                        text: ").".to_string(),
+                    })),
+                ];
+                assert_eq!(mfm::parse(input).unwrap(), output);
+            }
+
+            #[test]
+            fn nested() {
+                let input = "official instance: [**[https://misskey.io/@ai](https://misskey.io/@ai)**](https://misskey.io/@ai).";
+                let output = vec![
+                    Node::Inline(Inline::Text(Text {
+                        text: "official instance: ".to_string(),
+                    })),
+                    Node::Inline(Inline::Link(Link {
+                        silent: false,
+                        url: "https://misskey.io/@ai".to_string(),
+                        children: vec![Inline::Bold(Bold(vec![Inline::Text(Text {
+                            text: "[https://misskey.io/@ai](https://misskey.io/@ai)".to_string(),
+                        })]))],
+                    })),
+                    Node::Inline(Inline::Text(Text {
+                        text: ".".to_string(),
+                    })),
+                ];
+                assert_eq!(mfm::parse(input).unwrap(), output);
+            }
+        }
+
+        mod cannot_nest_a_mention_in_a_link_label {
+            use super::*;
+
+            #[test]
+            fn basic() {
+                let input = "[@example](https://example.com)";
+                let output = vec![Node::Inline(Inline::Link(Link {
+                    silent: false,
+                    url: "https://example.com".to_string(),
+                    children: vec![Inline::Text(Text {
+                        text: "@example".to_string(),
+                    })],
+                }))];
+                assert_eq!(mfm::parse(input).unwrap(), output);
+            }
+
+            #[test]
+            fn nested() {
+                let input = "[@example**@example**](https://example.com)";
+                let output = vec![Node::Inline(Inline::Link(Link {
+                    silent: false,
+                    url: "https://example.com".to_string(),
+                    children: vec![
+                        Inline::Text(Text {
+                            text: "@example".to_string(),
+                        }),
+                        Inline::Bold(Bold(vec![Inline::Text(Text {
+                            text: "@example".to_string(),
+                        })])),
+                    ],
+                }))];
+                assert_eq!(mfm::parse(input).unwrap(), output);
+            }
+        }
+
+        #[test]
+        fn with_brackets() {
+            let input = "[foo](https://example.com/foo(bar))";
+            let output = vec![Node::Inline(Inline::Link(Link {
+                silent: false,
+                url: "https://example.com/foo(bar)".to_string(),
+                children: vec![Inline::Text(Text {
+                    text: "foo".to_string(),
+                })],
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn with_parent_brackets() {
+            let input = "([foo](https://example.com/foo(bar)))";
+            let output = vec![
+                Node::Inline(Inline::Text(Text {
+                    text: "(".to_string(),
+                })),
+                Node::Inline(Inline::Link(Link {
+                    silent: false,
+                    url: "https://example.com/foo(bar)".to_string(),
+                    children: vec![Inline::Text(Text {
+                        text: "foo".to_string(),
+                    })],
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: ")".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn with_brackets_before() {
+            let input = "[test] foo [bar](https://example.com)";
+            let output = vec![
+                Node::Inline(Inline::Text(Text {
+                    text: "[test] foo ".to_string(),
+                })),
+                Node::Inline(Inline::Link(Link {
+                    silent: false,
+                    url: "https://example.com".to_string(),
+                    children: vec![Inline::Text(Text {
+                        text: "bar".to_string(),
+                    })],
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+    }
+
     mod plain {
         use super::*;
 
