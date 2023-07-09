@@ -360,6 +360,7 @@ impl FullParser {
                 },
             ),
             map(|s| self.parse_hashtag(s, last_char), Inline::Hashtag),
+            map(|s| self.parse_url(s), Inline::Url),
             map(Self::parse_plain, Inline::Plain),
             map(Self::parse_text, Inline::Text),
         ))(input)
@@ -806,8 +807,80 @@ impl FullParser {
         )(input)
     }
 
-    fn parse_url<'a>(input: &'a str) -> IResult<&'a str, Url> {
-        todo!()
+    fn parse_url<'a>(&self, input: &'a str) -> IResult<&'a str, Url> {
+        fn find_url_str<'a>(input: &'a str) -> IResult<&'a str, &'a str> {
+            static RE: Lazy<Regex> =
+                Lazy::new(|| Regex::new(r"^[[:word:].,/:%#@$&?!~=+-]+").unwrap());
+            re_find(Lazy::force(&RE).clone())(input)
+        }
+
+        fn inner_item<'a>(input: &'a str, depth: u32, nest_limit: u32) -> IResult<&'a str, ()> {
+            fn nest<'a>(input: &'a str, depth: u32, nest_limit: u32) -> IResult<&'a str, ()> {
+                let depth = depth + 1;
+                if depth < nest_limit {
+                    value((), many0(|s| inner_item(s, depth, nest_limit)))(input)
+                } else {
+                    value((), find_url_str)(input)
+                }
+            }
+
+            alt((
+                delimited(char('('), |s| nest(s, depth, nest_limit), char(')')),
+                delimited(char('['), |s| nest(s, depth, nest_limit), char(']')),
+                value((), alt((tag("()"), tag("[]"), find_url_str))),
+            ))(input)
+        }
+
+        let url = |input: &'a str| -> IResult<&'a str, Url> {
+            let (_, trimmed) = map(
+                pair(
+                    recognize(tuple((tag("http"), opt(char('s')), tag("://")))),
+                    verify(
+                        map(
+                            recognize(many1(|s| inner_item(s, self.depth, self.nest_limit))),
+                            |s| s.trim_end_matches(&['.', ',']),
+                        ),
+                        |s: &str| !s.is_empty(),
+                    ),
+                ),
+                |(first, second)| format!("{first}{second}"),
+            )(input)?;
+            Ok((
+                // include trailing dots and commas to remaining value
+                &input[trimmed.len()..],
+                Url {
+                    url: trimmed.to_string(),
+                    brackets: false,
+                },
+            ))
+        };
+
+        fn url_alt<'a>(input: &'a str) -> IResult<&'a str, Url> {
+            delimited(
+                char('<'),
+                map(
+                    recognize(tuple((
+                        tag("http"),
+                        opt(char('s')),
+                        tag("://"),
+                        many1(preceded(
+                            not(alt((value((), char('>')), value((), space)))),
+                            anychar,
+                        )),
+                    ))),
+                    |s| Url {
+                        url: s.to_string(),
+                        brackets: true,
+                    },
+                ),
+                char('>'),
+            )(input)
+        }
+
+        preceded(
+            verify(success(()), |_| !self.link_label),
+            alt((url, url_alt)),
+        )(input)
     }
 
     fn parse_link<'a>(input: &'a str) -> IResult<&'a str, Link> {

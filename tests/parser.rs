@@ -1661,6 +1661,219 @@ hoge"#;
         }
     }
 
+    mod url {
+        use super::*;
+
+        #[test]
+        fn basic() {
+            let input = "https://misskey.io/@ai";
+            let output = vec![Node::Inline(Inline::Url(Url {
+                url: "https://misskey.io/@ai".to_string(),
+                brackets: false,
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn with_other_texts() {
+            let input = "official instance: https://misskey.io/@ai.";
+            let output = vec![
+                Node::Inline(Inline::Text(Text {
+                    text: "official instance: ".to_string(),
+                })),
+                Node::Inline(Inline::Url(Url {
+                    url: "https://misskey.io/@ai".to_string(),
+                    brackets: false,
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: ".".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn ignore_trailing_period() {
+            let input = "https://misskey.io/@ai.";
+            let output = vec![
+                Node::Inline(Inline::Url(Url {
+                    url: "https://misskey.io/@ai".to_string(),
+                    brackets: false,
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: ".".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn disallow_period_only() {
+            let input = "https://.";
+            let output = vec![Node::Inline(Inline::Text(Text {
+                text: "https://.".to_string(),
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn ignore_trailing_periods() {
+            let input = "https://misskey.io/@ai...";
+            let output = vec![
+                Node::Inline(Inline::Url(Url {
+                    url: "https://misskey.io/@ai".to_string(),
+                    brackets: false,
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: "...".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn with_comma() {
+            let input = "https://example.com/foo?bar=a,b";
+            let output = vec![Node::Inline(Inline::Url(Url {
+                url: "https://example.com/foo?bar=a,b".to_string(),
+                brackets: false,
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn ignore_trailing_comma() {
+            let input = "https://example.com/foo, bar";
+            let output = vec![
+                Node::Inline(Inline::Url(Url {
+                    url: "https://example.com/foo".to_string(),
+                    brackets: false,
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: ", bar".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn with_brackets() {
+            let input = "https://example.com/foo(bar)";
+            let output = vec![Node::Inline(Inline::Url(Url {
+                url: "https://example.com/foo(bar)".to_string(),
+                brackets: false,
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+
+            let input = "https://example.com/foo[bar]";
+            let output = vec![Node::Inline(Inline::Url(Url {
+                url: "https://example.com/foo[bar]".to_string(),
+                brackets: false,
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn ignore_parent_parens() {
+            let input = "(https://example.com/foo)";
+            let output = vec![
+                Node::Inline(Inline::Text(Text {
+                    text: "(".to_string(),
+                })),
+                Node::Inline(Inline::Url(Url {
+                    url: "https://example.com/foo".to_string(),
+                    brackets: false,
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: ")".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn ignore_parent_parens_2() {
+            let input = "(foo https://example.com/foo)";
+            let output = vec![
+                Node::Inline(Inline::Text(Text {
+                    text: "(foo ".to_string(),
+                })),
+                Node::Inline(Inline::Url(Url {
+                    url: "https://example.com/foo".to_string(),
+                    brackets: false,
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: ")".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn ignore_parent_parens_with_internal_parens() {
+            let input = "(https://example.com/foo(bar))";
+            let output = vec![
+                Node::Inline(Inline::Text(Text {
+                    text: "(".to_string(),
+                })),
+                Node::Inline(Inline::Url(Url {
+                    url: "https://example.com/foo(bar)".to_string(),
+                    brackets: false,
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: ")".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn ignore_parent_brackets() {
+            let input = "foo [https://example.com/foo] bar";
+            let output = vec![
+                Node::Inline(Inline::Text(Text {
+                    text: "foo [".to_string(),
+                })),
+                Node::Inline(Inline::Url(Url {
+                    url: "https://example.com/foo".to_string(),
+                    brackets: false,
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: "] bar".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn ignore_non_ascii_without_angle_brackets() {
+            let input = "https://大石泉すき.example.com";
+            let output = vec![Node::Inline(Inline::Text(Text {
+                text: "https://大石泉すき.example.com".to_string(),
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn match_non_ascii_with_angle_brackets() {
+            let input = "<https://大石泉すき.example.com>";
+            let output = vec![Node::Inline(Inline::Url(Url {
+                url: "https://大石泉すき.example.com".to_string(),
+                brackets: true,
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn prevent_xss() {
+            let input = "javascript:foo";
+            let output = vec![Node::Inline(Inline::Text(Text {
+                text: "javascript:foo".to_string(),
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+    }
+
     mod plain {
         use super::*;
 
@@ -1905,6 +2118,28 @@ hoge"#;
                 ];
                 assert_eq!(mfm::parse(input).unwrap(), output);
             }
+        }
+
+        #[test]
+        fn url() {
+            let input = "<b>https://example.com/abc(xyz)</b>";
+            let output = vec![Node::Inline(Inline::Bold(Bold(vec![Inline::Url(Url {
+                url: "https://example.com/abc(xyz)".to_string(),
+                brackets: false,
+            })])))];
+            assert_eq!(mfm::parse_with_nest_limit(input, 2).unwrap(), output);
+
+            let input = "<b>https://example.com/abc(x(y)z)</b>";
+            let output = vec![Node::Inline(Inline::Bold(Bold(vec![
+                Inline::Url(Url {
+                    url: "https://example.com/abc".to_string(),
+                    brackets: false,
+                }),
+                Inline::Text(Text {
+                    text: "(x(y)z)".to_string(),
+                }),
+            ])))];
+            assert_eq!(mfm::parse_with_nest_limit(input, 2).unwrap(), output);
         }
     }
 }
