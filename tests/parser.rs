@@ -25,7 +25,6 @@ mod simple_parser {
         }
 
         #[test]
-        #[ignore]
         fn keycap_number_sign() {
             let input = "abc#️⃣abc";
             let output = vec![
@@ -521,6 +520,41 @@ hoge"#;
             let output = vec![Node::Inline(Inline::Text(Text {
                 text: "before<center>aaa</center>".to_string(),
             }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+    }
+
+    mod unicode_emoji {
+        use super::*;
+
+        #[test]
+        fn basic() {
+            let input = "今起きた😇";
+            let output = vec![
+                Node::Inline(Inline::Text(Text {
+                    text: "今起きた".to_string(),
+                })),
+                Node::Inline(Inline::UnicodeEmoji(UnicodeEmoji {
+                    emoji: "😇".to_string(),
+                })),
+            ];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn keycap_number_sign() {
+            let input = "abc#️⃣123";
+            let output = vec![
+                Node::Inline(Inline::Text(Text {
+                    text: "abc".to_string(),
+                })),
+                Node::Inline(Inline::UnicodeEmoji(UnicodeEmoji {
+                    emoji: "#️⃣".to_string(),
+                })),
+                Node::Inline(Inline::Text(Text {
+                    text: "123".to_string(),
+                })),
+            ];
             assert_eq!(mfm::parse(input).unwrap(), output);
         }
     }
@@ -1314,7 +1348,6 @@ hoge"#;
         }
 
         #[test]
-        #[ignore]
         fn with_keycap_number_sign() {
             let input = "#️⃣abc123 #abc";
             let output = vec![
@@ -1332,7 +1365,6 @@ hoge"#;
         }
 
         #[test]
-        #[ignore]
         fn with_keycap_number_sign_2() {
             let input = "abc\n#️⃣abc";
             let output = vec![
@@ -2521,5 +2553,59 @@ hoge"#;
             ))])))];
             assert_eq!(mfm::parse_with_nest_limit(input, 2).unwrap(), output);
         }
+    }
+
+    #[test]
+    fn composite() {
+        let input = r#"before
+<center>
+Hello $[tada everynyan! 🎉]
+
+I'm @ai, A bot of misskey!
+
+https://github.com/syuilo/ai
+</center>
+after"#;
+        let output = vec![
+            Node::Inline(Inline::Text(Text {
+                text: "before".to_string(),
+            })),
+            Node::Block(Block::Center(Center(vec![
+                Inline::Text(Text {
+                    text: "Hello ".to_string(),
+                }),
+                Inline::Fn(Fn {
+                    name: "tada".to_string(),
+                    args: Vec::new(),
+                    children: vec![
+                        Inline::Text(Text {
+                            text: "everynyan! ".to_string(),
+                        }),
+                        Inline::UnicodeEmoji(UnicodeEmoji {
+                            emoji: "🎉".to_string(),
+                        }),
+                    ],
+                }),
+                Inline::Text(Text {
+                    text: "\n\nI'm ".to_string(),
+                }),
+                Inline::Mention(Mention {
+                    username: "ai".to_string(),
+                    host: None,
+                    acct: "@ai".to_string(),
+                }),
+                Inline::Text(Text {
+                    text: ", A bot of misskey!\n\n".to_string(),
+                }),
+                Inline::Url(Url {
+                    url: "https://github.com/syuilo/ai".to_string(),
+                    brackets: false,
+                }),
+            ]))),
+            Node::Inline(Inline::Text(Text {
+                text: "after".to_string(),
+            })),
+        ];
+        assert_eq!(mfm::parse(input).unwrap(), output);
     }
 }

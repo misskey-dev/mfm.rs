@@ -2,7 +2,9 @@ use nom::{
     branch::alt,
     bytes::complete::{is_not, tag, tag_no_case, take, take_till, take_till1, take_until1},
     character::complete::{anychar, char, line_ending, not_line_ending, satisfy},
-    combinator::{consumed, map, map_res, not, opt, peek, recognize, rest, success, value, verify},
+    combinator::{
+        consumed, fail, map, map_res, not, opt, peek, recognize, rest, success, value, verify,
+    },
     error::{ErrorKind, ParseError},
     multi::{many0, many1, many_m_n, separated_list1},
     sequence::{delimited, pair, preceded, separated_pair, tuple},
@@ -10,6 +12,7 @@ use nom::{
 };
 use nom_regex::{lib::regex::Regex, str::re_find};
 use once_cell::sync::Lazy;
+use unicode_segmentation::UnicodeSegmentation;
 
 use crate::{
     node::*,
@@ -95,6 +98,7 @@ impl SimpleParser {
     pub fn parse<'a>(input: &'a str) -> IResult<&'a str, Vec<Simple>> {
         map(
             many0(alt((
+                map(FullParser::parse_unicode_emoji, Simple::UnicodeEmoji),
                 map(FullParser::parse_emoji_code, Simple::EmojiCode),
                 map(FullParser::parse_text, Simple::Text),
             ))),
@@ -344,6 +348,7 @@ impl FullParser {
         last_char: Option<char>,
     ) -> IResult<&'a str, Inline> {
         alt((
+            map(Self::parse_unicode_emoji, Inline::UnicodeEmoji),
             map(Self::parse_emoji_code, Inline::EmojiCode),
             map(|s| self.parse_big(s), Inline::Fn),
             map(|s| self.parse_bold(s), Inline::Bold),
@@ -369,7 +374,17 @@ impl FullParser {
     }
 
     fn parse_unicode_emoji<'a>(input: &'a str) -> IResult<&'a str, UnicodeEmoji> {
-        todo!()
+        if let Some(s) = input.graphemes(true).next() {
+            if let Some(_) = emojis::get(s) {
+                return Ok((
+                    &input[s.len()..],
+                    UnicodeEmoji {
+                        emoji: s.to_string(),
+                    },
+                ));
+            }
+        }
+        fail(input)
     }
 
     fn parse_emoji_code<'a>(input: &'a str) -> IResult<&'a str, EmojiCode> {
