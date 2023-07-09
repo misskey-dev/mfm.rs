@@ -362,6 +362,7 @@ impl FullParser {
             map(|s| self.parse_hashtag(s, last_char), Inline::Hashtag),
             map(|s| self.parse_url(s), Inline::Url),
             map(|s| self.parse_link(s), Inline::Link),
+            map(|s| self.parse_fn(s), Inline::Fn),
             map(Self::parse_plain, Inline::Plain),
             map(Self::parse_text, Inline::Text),
         ))(input)
@@ -931,8 +932,64 @@ impl FullParser {
         )(input)
     }
 
-    fn parse_fn<'a>(input: &'a str) -> IResult<&'a str, Fn> {
-        todo!()
+    fn parse_fn<'a>(&self, input: &'a str) -> IResult<&'a str, Fn> {
+        delimited(
+            tag("$["),
+            map(
+                separated_pair(
+                    pair(
+                        // name
+                        take_till1(|c: char| !c.is_ascii_alphanumeric() && c != '_'),
+                        // args
+                        opt(preceded(
+                            char('.'),
+                            separated_list1(
+                                char(','),
+                                map(
+                                    pair(
+                                        // arg name
+                                        take_till1(|c: char| {
+                                            !c.is_ascii_alphanumeric() && c != '_'
+                                        }),
+                                        // arg value
+                                        opt(preceded(
+                                            char('='),
+                                            take_till1(|c: char| {
+                                                !c.is_ascii_alphanumeric() && !"_.-".contains(c)
+                                            }),
+                                        )),
+                                    ),
+                                    |(name, value): (&str, Option<&str>)| {
+                                        (name.to_string(), value.map(String::from))
+                                    },
+                                ),
+                            ),
+                        )),
+                    ),
+                    char(' '),
+                    |contents| {
+                        if let Some(inner) = self.nest() {
+                            map(
+                                many1(preceded(not(char(']')), |s| inner.parse_inline(s, None))),
+                                merge_text_inline,
+                            )(contents)
+                        } else {
+                            map(is_not("]"), |s: &str| {
+                                vec![Inline::Text(Text {
+                                    text: s.to_string(),
+                                })]
+                            })(contents)
+                        }
+                    },
+                ),
+                |((name, args), children)| Fn {
+                    name: name.to_string(),
+                    args: args.unwrap_or_else(Vec::new),
+                    children,
+                },
+            ),
+            char(']'),
+        )(input)
     }
 
     fn parse_plain<'a>(input: &'a str) -> IResult<&'a str, Plain> {

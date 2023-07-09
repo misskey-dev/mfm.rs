@@ -2132,6 +2132,117 @@ hoge"#;
         }
     }
 
+    mod fn_ {
+        use super::*;
+
+        #[test]
+        fn basic() {
+            let input = "$[tada abc]";
+            let output = vec![Node::Inline(Inline::Fn(Fn {
+                name: "tada".to_string(),
+                args: Vec::new(),
+                children: vec![Inline::Text(Text {
+                    text: "abc".to_string(),
+                })],
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn with_a_string_argument() {
+            let input = "$[spin.speed=1.1s a]";
+            let output = vec![Node::Inline(Inline::Fn(Fn {
+                name: "spin".to_string(),
+                args: vec![("speed".to_string(), Some("1.1s".to_string()))],
+                children: vec![Inline::Text(Text {
+                    text: "a".to_string(),
+                })],
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn with_a_string_argument_2() {
+            let input = "$[position.x=-3 a]";
+            let output = vec![Node::Inline(Inline::Fn(Fn {
+                name: "position".to_string(),
+                args: vec![("x".to_string(), Some("-3".to_string()))],
+                children: vec![Inline::Text(Text {
+                    text: "a".to_string(),
+                })],
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn with_multiple_string_arguments() {
+            let input = "$[scale.x=3,y=4 a]";
+            let output = vec![Node::Inline(Inline::Fn(Fn {
+                name: "scale".to_string(),
+                args: vec![
+                    ("x".to_string(), Some("3".to_string())),
+                    ("y".to_string(), Some("4".to_string())),
+                ],
+                children: vec![Inline::Text(Text {
+                    text: "a".to_string(),
+                })],
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn with_a_argument_without_value() {
+            let input = "$[font.serif a]";
+            let output = vec![Node::Inline(Inline::Fn(Fn {
+                name: "font".to_string(),
+                args: vec![("serif".to_string(), None)],
+                children: vec![Inline::Text(Text {
+                    text: "a".to_string(),
+                })],
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn with_multiple_arguments_without_value() {
+            let input = "$[flip.h,v a]";
+            let output = vec![Node::Inline(Inline::Fn(Fn {
+                name: "flip".to_string(),
+                args: vec![("h".to_string(), None), ("v".to_string(), None)],
+                children: vec![Inline::Text(Text {
+                    text: "a".to_string(),
+                })],
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn invalid_fn_name() {
+            let input = "$[関数 text]";
+            let output = vec![Node::Inline(Inline::Text(Text {
+                text: "$[関数 text]".to_string(),
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+
+        #[test]
+        fn nest() {
+            let input = "$[spin.speed=1.1s $[shake a]]";
+            let output = vec![Node::Inline(Inline::Fn(Fn {
+                name: "spin".to_string(),
+                args: vec![("speed".to_string(), Some("1.1s".to_string()))],
+                children: vec![Inline::Fn(Fn {
+                    name: "shake".to_string(),
+                    args: Vec::new(),
+                    children: vec![Inline::Text(Text {
+                        text: "a".to_string(),
+                    })],
+                })],
+            }))];
+            assert_eq!(mfm::parse(input).unwrap(), output);
+        }
+    }
+
     mod plain {
         use super::*;
 
@@ -2397,6 +2508,17 @@ hoge"#;
                     text: "(x(y)z)".to_string(),
                 }),
             ])))];
+            assert_eq!(mfm::parse_with_nest_limit(input, 2).unwrap(), output);
+        }
+
+        #[test]
+        fn fn_() {
+            let input = "<b><b>$[a b]</b></b>";
+            let output = vec![Node::Inline(Inline::Bold(Bold(vec![Inline::Bold(Bold(
+                vec![Inline::Text(Text {
+                    text: "$[a b]".to_string(),
+                })],
+            ))])))];
             assert_eq!(mfm::parse_with_nest_limit(input, 2).unwrap(), output);
         }
     }
