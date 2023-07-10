@@ -727,6 +727,181 @@ hoge"#;
         }
     }
 
+    mod italic {
+        use super::*;
+
+        mod tag {
+            use super::*;
+
+            #[test]
+            fn basic() {
+                let input = "<i>abc</i>";
+                let output = vec![Node::Inline(Inline::Italic(Italic(vec![Inline::Text(
+                    Text {
+                        text: "abc".to_string(),
+                    },
+                )])))];
+                assert_eq!(mfm::parse(input).unwrap(), output);
+            }
+
+            #[test]
+            fn inline_contents() {
+                let input = "<i>abc**123**abc</i>";
+                let output = vec![Node::Inline(Inline::Italic(Italic(vec![
+                    Inline::Text(Text {
+                        text: "abc".to_string(),
+                    }),
+                    Inline::Bold(Bold(vec![Inline::Text(Text {
+                        text: "123".to_string(),
+                    })])),
+                    Inline::Text(Text {
+                        text: "abc".to_string(),
+                    }),
+                ])))];
+                assert_eq!(mfm::parse(input).unwrap(), output);
+            }
+
+            #[test]
+            fn multiple_line_contents() {
+                let input = "<i>abc\n**123**\nabc</i>";
+                let output = vec![Node::Inline(Inline::Italic(Italic(vec![
+                    Inline::Text(Text {
+                        text: "abc\n".to_string(),
+                    }),
+                    Inline::Bold(Bold(vec![Inline::Text(Text {
+                        text: "123".to_string(),
+                    })])),
+                    Inline::Text(Text {
+                        text: "\nabc".to_string(),
+                    }),
+                ])))];
+                assert_eq!(mfm::parse(input).unwrap(), output);
+            }
+        }
+
+        mod asta {
+            use super::*;
+
+            #[test]
+            fn basic() {
+                let input = "*abc*";
+                let output = vec![Node::Inline(Inline::Italic(Italic(vec![Inline::Text(
+                    Text {
+                        text: "abc".to_string(),
+                    },
+                )])))];
+                assert_eq!(mfm::parse(input).unwrap(), output);
+            }
+
+            #[test]
+            fn basic_2() {
+                let input = "before *abc* after";
+                let output = vec![
+                    Node::Inline(Inline::Text(Text {
+                        text: "before ".to_string(),
+                    })),
+                    Node::Inline(Inline::Italic(Italic(vec![Inline::Text(Text {
+                        text: "abc".to_string(),
+                    })]))),
+                    Node::Inline(Inline::Text(Text {
+                        text: " after".to_string(),
+                    })),
+                ];
+                assert_eq!(mfm::parse(input).unwrap(), output);
+            }
+
+            #[test]
+            fn ignore_if_preceded_by_alnum() {
+                let input = "before*abc*after";
+                let output = vec![Node::Inline(Inline::Text(Text {
+                    text: "before*abc*after".to_string(),
+                }))];
+                assert_eq!(mfm::parse(input).unwrap(), output);
+
+                let input = "123*abc*123";
+                let output = vec![Node::Inline(Inline::Text(Text {
+                    text: "123*abc*123".to_string(),
+                }))];
+                assert_eq!(mfm::parse(input).unwrap(), output);
+
+                let input = "あいう*abc*えお";
+                let output = vec![
+                    Node::Inline(Inline::Text(Text {
+                        text: "あいう".to_string(),
+                    })),
+                    Node::Inline(Inline::Italic(Italic(vec![Inline::Text(Text {
+                        text: "abc".to_string(),
+                    })]))),
+                    Node::Inline(Inline::Text(Text {
+                        text: "えお".to_string(),
+                    })),
+                ];
+                assert_eq!(mfm::parse(input).unwrap(), output);
+            }
+        }
+
+        mod under {
+            use super::*;
+
+            #[test]
+            fn basic() {
+                let input = "_abc_";
+                let output = vec![Node::Inline(Inline::Italic(Italic(vec![Inline::Text(
+                    Text {
+                        text: "abc".to_string(),
+                    },
+                )])))];
+                assert_eq!(mfm::parse(input).unwrap(), output);
+            }
+
+            #[test]
+            fn basic_2() {
+                let input = "before _abc_ after";
+                let output = vec![
+                    Node::Inline(Inline::Text(Text {
+                        text: "before ".to_string(),
+                    })),
+                    Node::Inline(Inline::Italic(Italic(vec![Inline::Text(Text {
+                        text: "abc".to_string(),
+                    })]))),
+                    Node::Inline(Inline::Text(Text {
+                        text: " after".to_string(),
+                    })),
+                ];
+                assert_eq!(mfm::parse(input).unwrap(), output);
+            }
+
+            #[test]
+            fn ignore_if_preceded_by_alnum() {
+                let input = "before_abc_after";
+                let output = vec![Node::Inline(Inline::Text(Text {
+                    text: "before_abc_after".to_string(),
+                }))];
+                assert_eq!(mfm::parse(input).unwrap(), output);
+
+                let input = "123_abc_123";
+                let output = vec![Node::Inline(Inline::Text(Text {
+                    text: "123_abc_123".to_string(),
+                }))];
+                assert_eq!(mfm::parse(input).unwrap(), output);
+
+                let input = "あいう_abc_えお";
+                let output = vec![
+                    Node::Inline(Inline::Text(Text {
+                        text: "あいう".to_string(),
+                    })),
+                    Node::Inline(Inline::Italic(Italic(vec![Inline::Text(Text {
+                        text: "abc".to_string(),
+                    })]))),
+                    Node::Inline(Inline::Text(Text {
+                        text: "えお".to_string(),
+                    })),
+                ];
+                assert_eq!(mfm::parse(input).unwrap(), output);
+            }
+        }
+    }
+
     mod plain {
         use super::*;
 
@@ -809,7 +984,6 @@ hoge"#;
             use super::*;
 
             #[test]
-            #[ignore]
             fn basic() {
                 let input = "<i><i>**abc**</i></i>";
                 let output = vec![Node::Inline(Inline::Italic(Italic(vec![Inline::Italic(
@@ -821,7 +995,6 @@ hoge"#;
             }
 
             #[test]
-            #[ignore]
             fn tag() {
                 let input = "<i><i><b>abc</b></i></i>";
                 let output = vec![Node::Inline(Inline::Italic(Italic(vec![Inline::Italic(
@@ -834,7 +1007,6 @@ hoge"#;
         }
 
         #[test]
-        #[ignore]
         fn small() {
             let input = "<i><i><small>abc</small></i></i>";
             let output = vec![Node::Inline(Inline::Italic(Italic(vec![Inline::Italic(
@@ -842,6 +1014,17 @@ hoge"#;
                     text: "<small>abc</small>".to_string(),
                 })]),
             )])))];
+            assert_eq!(mfm::parse_with_nest_limit(input, 2).unwrap(), output);
+        }
+
+        #[test]
+        fn italic() {
+            let input = "<b><b><i>abc</i></b></b>";
+            let output = vec![Node::Inline(Inline::Bold(Bold(vec![Inline::Bold(Bold(
+                vec![Inline::Text(Text {
+                    text: "<i>abc</i>".to_string(),
+                })],
+            ))])))];
             assert_eq!(mfm::parse_with_nest_limit(input, 2).unwrap(), output);
         }
     }

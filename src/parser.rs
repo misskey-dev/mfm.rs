@@ -2,7 +2,7 @@ use nom::{
     branch::alt,
     bytes::complete::{tag, tag_no_case, take, take_till1, take_until1},
     character::complete::{anychar, char, line_ending, not_line_ending, satisfy},
-    combinator::{map, map_res, not, opt, peek, recognize, rest, value, verify},
+    combinator::{consumed, map, map_res, not, opt, peek, recognize, rest, success, value, verify},
     error::{ErrorKind, ParseError},
     multi::{many0, many1, many_m_n, separated_list1},
     sequence::{delimited, pair, preceded, separated_pair, tuple},
@@ -30,6 +30,46 @@ fn line_end<'a, E: ParseError<&'a str>>(input: &'a str) -> IResult<&'a str, (), 
     ))(input)
 }
 
+/// [`many0`] but remembers last character consumed in the last iteration.
+///
+/// The child parser receives last character as the second argument.
+fn many0_keep_last_char<'a, O, E, F>(mut f: F) -> impl FnMut(&'a str) -> IResult<&'a str, Vec<O>, E>
+where
+    F: FnMut(&'a str, Option<char>) -> IResult<&'a str, O, E>,
+    E: ParseError<&'a str>,
+{
+    move |mut i| {
+        let mut acc = Vec::with_capacity(4);
+        let mut last_char = None;
+        loop {
+            let len = i.len();
+            let res = consumed(|s| f(s, last_char))(i);
+            match res {
+                Err(nom::Err::Error(_)) => return Ok((i, acc)),
+                Err(e) => return Err(e),
+                Ok((i1, (consumed_input, o))) => {
+                    // infinite loop check: the parser must always consume
+                    if i1.len() == len {
+                        return Err(nom::Err::Error(E::from_error_kind(i, ErrorKind::Many0)));
+                    }
+
+                    i = i1;
+                    acc.push(o);
+                    last_char = consumed_input.chars().last();
+                }
+            }
+        }
+    }
+}
+
+fn many1_keep_last_char<'a, O, E, F>(f: F) -> impl FnMut(&'a str) -> IResult<&'a str, Vec<O>, E>
+where
+    F: FnMut(&'a str, Option<char>) -> IResult<&'a str, O, E>,
+    E: ParseError<&'a str>,
+{
+    verify(many0_keep_last_char(f), |v: &Vec<O>| !v.is_empty())
+}
+
 /// Parser for partial MFM syntax.
 #[derive(Clone, Debug)]
 pub struct SimpleParser {}
@@ -39,8 +79,8 @@ impl SimpleParser {
     pub fn parse<'a>(input: &'a str) -> IResult<&'a str, Vec<Simple>> {
         map(
             many0(alt((
-                map(|s| FullParser::parse_emoji_code(s), Simple::EmojiCode),
-                map(|s| FullParser::parse_text(s), Simple::Text),
+                map(FullParser::parse_emoji_code, Simple::EmojiCode),
+                map(FullParser::parse_text, Simple::Text),
             ))),
             merge_text_simple,
         )(input)
@@ -88,10 +128,12 @@ impl FullParser {
     /// Returns a full MFM node tree.
     pub fn parse<'a>(&self, input: &'a str) -> IResult<&'a str, Vec<Node>> {
         map(
-            many0(alt((
-                map(|s| self.parse_block(s), Node::Block),
-                map(|s| self.parse_inline(s), Node::Inline),
-            ))),
+            many0_keep_last_char(|i, last_char| {
+                alt((
+                    map(|s| self.parse_block(s), Node::Block),
+                    map(|s| self.parse_inline(s, last_char), Node::Inline),
+                ))(i)
+            }),
             merge_text,
         )(input)
     }
@@ -247,9 +289,12 @@ impl FullParser {
             ),
             |contents| {
                 let nodes = if let Some(inner) = self.nest() {
-                    map(many1(|s| inner.parse_inline(s)), merge_text_inline)(contents)
-                        .map_err(|_| failure(contents))?
-                        .1
+                    map(
+                        many1_keep_last_char(|i, last_char| inner.parse_inline(i, last_char)),
+                        merge_text_inline,
+                    )(contents)
+                    .map_err(|_| failure(contents))?
+                    .1
                 } else {
                     vec![Inline::Text(Text {
                         text: contents.to_string(),
@@ -260,12 +305,17 @@ impl FullParser {
         )(input)
     }
 
-    fn parse_inline<'a>(&self, input: &'a str) -> IResult<&'a str, Inline> {
+    fn parse_inline<'a>(
+        &self,
+        input: &'a str,
+        last_char: Option<char>,
+    ) -> IResult<&'a str, Inline> {
         alt((
             map(Self::parse_emoji_code, Inline::EmojiCode),
             map(|s| self.parse_big(s), Inline::Fn),
             map(|s| self.parse_bold(s), Inline::Bold),
             map(|s| self.parse_small(s), Inline::Small),
+            map(|s| self.parse_italic(s, last_char), Inline::Italic),
             map(Self::parse_plain, Inline::Plain),
             map(Self::parse_text, Inline::Text),
         ))(input)
@@ -305,7 +355,9 @@ impl FullParser {
                 |contents| {
                     if let Some(inner) = self.nest() {
                         map(
-                            many1(preceded(not(tag(MARK)), |s| inner.parse_inline(s))),
+                            many1_keep_last_char(|i, last_char| {
+                                preceded(not(tag(MARK)), |s| inner.parse_inline(s, last_char))(i)
+                            }),
                             merge_text_inline,
                         )(contents)
                     } else {
@@ -334,7 +386,9 @@ impl FullParser {
                 |contents| {
                     if let Some(inner) = self.nest() {
                         map(
-                            many1(preceded(not(tag(MARK)), |s| inner.parse_inline(s))),
+                            many1_keep_last_char(|i, last_char| {
+                                (preceded(not(tag(MARK)), |s| inner.parse_inline(s, last_char)))(i)
+                            }),
                             merge_text_inline,
                         )(contents)
                     } else {
@@ -356,7 +410,9 @@ impl FullParser {
                 |contents| {
                     if let Some(inner) = self.nest() {
                         map(
-                            many1(preceded(not(tag(CLOSE)), |s| inner.parse_inline(s))),
+                            many1_keep_last_char(|i, last_char| {
+                                preceded(not(tag(CLOSE)), |s| inner.parse_inline(s, last_char))(i)
+                            }),
                             merge_text_inline,
                         )(contents)
                     } else {
@@ -398,7 +454,9 @@ impl FullParser {
                 |contents| {
                     if let Some(inner) = self.nest() {
                         map(
-                            many1(preceded(not(tag(CLOSE)), |s| inner.parse_inline(s))),
+                            many1_keep_last_char(|i, last_char| {
+                                preceded(not(tag(CLOSE)), |s| inner.parse_inline(s, last_char))(i)
+                            }),
                             merge_text_inline,
                         )(contents)
                     } else {
@@ -415,8 +473,84 @@ impl FullParser {
         )(input)
     }
 
-    fn parse_italic<'a>(input: &'a str) -> IResult<&'a str, Italic> {
-        todo!()
+    fn parse_italic<'a>(
+        &self,
+        input: &'a str,
+        last_char: Option<char>,
+    ) -> IResult<&'a str, Italic> {
+        let italic_tag = |input: &'a str| -> IResult<&'a str, Vec<Inline>> {
+            const OPEN: &str = "<i>";
+            const CLOSE: &str = "</i>";
+            delimited(
+                tag(OPEN),
+                |contents| {
+                    if let Some(inner) = self.nest() {
+                        map(
+                            many1_keep_last_char(|i, last_char| {
+                                preceded(not(tag(CLOSE)), |s| inner.parse_inline(s, last_char))(i)
+                            }),
+                            merge_text_inline,
+                        )(contents)
+                    } else {
+                        map(take_until1(CLOSE), |s: &str| {
+                            vec![Inline::Text(Text {
+                                text: s.to_string(),
+                            })]
+                        })(contents)
+                    }
+                },
+                tag(CLOSE),
+            )(input)
+        };
+        let italic_asta = |input: &'a str| -> IResult<&'a str, Vec<Inline>> {
+            const MARK: &str = "*";
+            delimited(
+                tag(MARK),
+                map(
+                    take_till1(|c: char| !c.is_ascii_alphanumeric() && !" \t".contains(c)),
+                    |s: &str| {
+                        vec![Inline::Text(Text {
+                            text: s.to_string(),
+                        })]
+                    },
+                ),
+                tag(MARK),
+            )(input)
+        };
+        let italic_under = |input: &'a str| -> IResult<&'a str, Vec<Inline>> {
+            const MARK: &str = "_";
+            delimited(
+                tag(MARK),
+                map(
+                    take_till1(|c: char| !c.is_ascii_alphanumeric() && !" \t".contains(c)),
+                    |s: &str| {
+                        vec![Inline::Text(Text {
+                            text: s.to_string(),
+                        })]
+                    },
+                ),
+                tag(MARK),
+            )(input)
+        };
+
+        map(
+            alt((
+                italic_tag,
+                preceded(
+                    verify(success(()), |_| {
+                        if let Some(c) = last_char {
+                            // check if character before the mark is not alnum
+                            if c.is_ascii_alphanumeric() {
+                                return false;
+                            }
+                        }
+                        true
+                    }),
+                    alt((italic_asta, italic_under)),
+                ),
+            )),
+            Italic,
+        )(input)
     }
 
     fn parse_strike<'a>(input: &'a str) -> IResult<&'a str, Strike> {
