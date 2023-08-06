@@ -13,56 +13,68 @@ fn generate_text<T: From<Text>>(mut dest: Vec<T>, stored_string: String) -> (Vec
     }
 }
 
-/// Merges adjacent text nodes into one with their contents concatenated.
-pub fn merge_text(nodes: Vec<Node>) -> Vec<Node> {
-    let (dest, stored_string) = nodes.into_iter().fold(
-        (Vec::<Node>::new(), String::new()),
-        |(dest, stored_string), node| {
-            if let Node::Inline(Inline::Text(Text { text })) = node {
-                (dest, stored_string + &text)
-            } else {
-                let (mut dest, stored_string) = generate_text(dest, stored_string);
-                dest.push(node);
-                (dest, stored_string)
-            }
-        },
-    );
-
-    generate_text(dest, stored_string).0
+pub(crate) trait MergeText {
+    fn merge_text(nodes: Vec<Self>) -> Vec<Self>
+    where
+        Self: Sized;
 }
 
-/// Merges adjacent inline text nodes into one with their contents concatenated.
-pub fn merge_text_inline(nodes: Vec<Inline>) -> Vec<Inline> {
-    let (dest, stored_string) = nodes.into_iter().fold(
-        (Vec::<Inline>::new(), String::new()),
-        |(dest, stored_string), node| {
-            if let Inline::Text(Text { text }) = node {
-                (dest, stored_string + &text)
-            } else {
-                let (mut dest, stored_string) = generate_text(dest, stored_string);
-                dest.push(node);
-                (dest, stored_string)
-            }
-        },
-    );
+impl MergeText for Node {
+    /// Merges adjacent text nodes into one with their contents concatenated.
+    fn merge_text(nodes: Vec<Self>) -> Vec<Self> {
+        let (dest, stored_string) = nodes.into_iter().fold(
+            (Vec::<Self>::new(), String::new()),
+            |(dest, stored_string), node| {
+                if let Node::Inline(Inline::Text(Text { text })) = node {
+                    (dest, stored_string + &text)
+                } else {
+                    let (mut dest, stored_string) = generate_text(dest, stored_string);
+                    dest.push(node);
+                    (dest, stored_string)
+                }
+            },
+        );
 
-    generate_text(dest, stored_string).0
+        generate_text(dest, stored_string).0
+    }
 }
 
-/// Merges adjacent simple text nodes into one with their contents concatenated.
-pub fn merge_text_simple(nodes: Vec<Simple>) -> Vec<Simple> {
-    let (dest, stored_string) = nodes.into_iter().fold(
-        (Vec::<Simple>::new(), String::new()),
-        |(dest, stored_string), node| {
-            if let Simple::Text(Text { text }) = node {
-                (dest, stored_string + &text)
-            } else {
-                let (mut dest, stored_string) = generate_text(dest, stored_string);
-                dest.push(node);
-                (dest, stored_string)
-            }
-        },
-    );
+impl MergeText for Inline {
+    /// Merges adjacent text nodes into one with their contents concatenated.
+    fn merge_text(nodes: Vec<Self>) -> Vec<Self> {
+        let (dest, stored_string) = nodes.into_iter().fold(
+            (Vec::<Self>::new(), String::new()),
+            |(dest, stored_string), node| {
+                if let Inline::Text(Text { text }) = node {
+                    (dest, stored_string + &text)
+                } else {
+                    let (mut dest, stored_string) = generate_text(dest, stored_string);
+                    dest.push(node);
+                    (dest, stored_string)
+                }
+            },
+        );
 
-    generate_text(dest, stored_string).0
+        generate_text(dest, stored_string).0
+    }
+}
+
+impl MergeText for Simple {
+    /// Merges adjacent text nodes into one with their contents concatenated.
+    fn merge_text(nodes: Vec<Self>) -> Vec<Self> {
+        let (dest, stored_string) = nodes.into_iter().fold(
+            (Vec::<Self>::new(), String::new()),
+            |(dest, stored_string), node| {
+                if let Simple::Text(Text { text }) = node {
+                    (dest, stored_string + &text)
+                } else {
+                    let (mut dest, stored_string) = generate_text(dest, stored_string);
+                    dest.push(node);
+                    (dest, stored_string)
+                }
+            },
+        );
+
+        generate_text(dest, stored_string).0
+    }
 }

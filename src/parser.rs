@@ -14,10 +14,7 @@ use nom_regex::{lib::regex::Regex, str::re_find};
 use once_cell::sync::Lazy;
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::{
-    node::*,
-    util::{merge_text, merge_text_inline, merge_text_simple},
-};
+use crate::{node::*, util::MergeText};
 
 fn failure<'a>(input: &'a str) -> nom::error::Error<&'a str> {
     nom::error::Error::from_error_kind(input, ErrorKind::Fail)
@@ -102,7 +99,7 @@ impl SimpleParser {
                 map(FullParser::parse_emoji_code, Simple::EmojiCode),
                 map(FullParser::parse_text, Simple::Text),
             ))),
-            merge_text_simple,
+            Simple::merge_text,
         )(input)
     }
 }
@@ -158,7 +155,7 @@ impl FullParser {
                     map(|s| self.parse_inline(s, last_char), Node::Inline),
                 ))(i)
             }),
-            merge_text,
+            Node::merge_text,
         )(input)
     }
 
@@ -328,7 +325,7 @@ impl FullParser {
                 let nodes = if let Some(inner) = self.nest() {
                     map(
                         many1_keep_last_char(|i, last_char| inner.parse_inline(i, last_char)),
-                        merge_text_inline,
+                        Inline::merge_text,
                     )(contents)
                     .map_err(|_| failure(contents))?
                     .1
@@ -420,7 +417,7 @@ impl FullParser {
                             many1_keep_last_char(|i, last_char| {
                                 preceded(not(tag(MARK)), |s| inner.parse_inline(s, last_char))(i)
                             }),
-                            merge_text_inline,
+                            Inline::merge_text,
                         )(contents)
                     } else {
                         map(take_until1(MARK), |s: &str| {
@@ -451,7 +448,7 @@ impl FullParser {
                             many1_keep_last_char(|i, last_char| {
                                 (preceded(not(tag(MARK)), |s| inner.parse_inline(s, last_char)))(i)
                             }),
-                            merge_text_inline,
+                            Inline::merge_text,
                         )(contents)
                     } else {
                         map(take_until1(MARK), |s: &str| {
@@ -475,7 +472,7 @@ impl FullParser {
                             many1_keep_last_char(|i, last_char| {
                                 preceded(not(tag(CLOSE)), |s| inner.parse_inline(s, last_char))(i)
                             }),
-                            merge_text_inline,
+                            Inline::merge_text,
                         )(contents)
                     } else {
                         map(take_until1(CLOSE), |s: &str| {
@@ -519,7 +516,7 @@ impl FullParser {
                             many1_keep_last_char(|i, last_char| {
                                 preceded(not(tag(CLOSE)), |s| inner.parse_inline(s, last_char))(i)
                             }),
-                            merge_text_inline,
+                            Inline::merge_text,
                         )(contents)
                     } else {
                         map(take_until1(CLOSE), |s: &str| {
@@ -551,7 +548,7 @@ impl FullParser {
                             many1_keep_last_char(|i, last_char| {
                                 preceded(not(tag(CLOSE)), |s| inner.parse_inline(s, last_char))(i)
                             }),
-                            merge_text_inline,
+                            Inline::merge_text,
                         )(contents)
                     } else {
                         map(take_until1(CLOSE), |s: &str| {
@@ -625,7 +622,7 @@ impl FullParser {
                     if let Some(inner) = self.nest() {
                         map(
                             many1(preceded(not(tag(CLOSE)), |s| inner.parse_inline(s, None))),
-                            merge_text_inline,
+                            Inline::merge_text,
                         )(contents)
                     } else {
                         map(take_until1(CLOSE), |s: &str| {
@@ -648,7 +645,7 @@ impl FullParser {
                             many1(preceded(not(alt((tag(MARK), line_ending))), |s| {
                                 inner.parse_inline(s, None)
                             })),
-                            merge_text_inline,
+                            Inline::merge_text,
                         )(contents)
                     } else {
                         map(
@@ -923,7 +920,7 @@ impl FullParser {
                                         not(alt((value((), char(']')), value((), line_ending)))),
                                         |s| inner.parse_inline(s, None),
                                     )),
-                                    merge_text_inline,
+                                    Inline::merge_text,
                                 )(contents);
                                 res
                             } else {
@@ -986,7 +983,7 @@ impl FullParser {
                         if let Some(inner) = self.nest() {
                             map(
                                 many1(preceded(not(char(']')), |s| inner.parse_inline(s, None))),
-                                merge_text_inline,
+                                Inline::merge_text,
                             )(contents)
                         } else {
                             map(is_not("]"), |s: &str| {
